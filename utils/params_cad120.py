@@ -6,28 +6,28 @@ We could compute the indexs only once, remeber the indexes and abandon the code.
 """
 # idx_ori = []#[None] * (9*11)
 # idx_pos = []#[None] * (3*15)
-# idx_oriconf =  []#[None] * (11)
-# idx_posconf =  []#[None] * (15)
+# idx_ori_conf =  []#[None] * (11)
+# idx_pos_conf =  []#[None] * (15)
 # 
 # for i in range(11):
 #     start = 1 + i*(9+1+3+1)
 #     for j in range(9):
 #         idx_ori.append(start + j)
-#     idx_oriconf.append(start + 9)
+#     idx_ori_conf.append(start + 9)
 #     for j in range(3):
 #         idx_pos.append(start + 9 + 1 + j)
-#     idx_posconf.append(start + 9 + 1 + 3)
+#     idx_pos_conf.append(start + 9 + 1 + 3)
 # 
 # for i in range(11, 15):
 #     start = 1 + 11*(9+1+3+1) + (i-11)*(3+1)
 #     for j in range(3):
 #         idx_pos.append(start + j)
-#     idx_posconf.append(start + 3)
+#     idx_pos_conf.append(start + 3)
 # 
 # print idx_ori
 # print idx_pos
-# print idx_oriconf
-# print idx_posconf
+# print idx_ori_conf
+# print idx_pos_conf
 
 idx_ori = [1, 2, 3, 4, 5, 6, 7, 8, 9, 15, 16, 17, 18, 19, 20, 21, 22, 23, 29,
             30, 31, 32, 33, 34, 35, 36, 37, 43, 44, 45, 46, 47, 48, 49, 50, 51,
@@ -40,8 +40,8 @@ idx_pos = [11, 12, 13, 25, 26, 27, 39, 40, 41, 53, 54, 55, 67, 68, 69, 81, 82,
             83, 95, 96, 97, 109, 110, 111, 123, 124, 125, 137, 138, 139, 151, 
             152, 153, 155, 156, 157, 159, 160, 161, 163, 164, 165, 167, 168, 
             169] 
-idx_oriconf = [10, 24, 38, 52, 66, 80, 94, 108, 122, 136, 150]
-idx_posconf = [14, 28, 42, 56, 70, 84, 98, 112, 126, 140, 154, 158, 162, 166,
+idx_ori_conf = [10, 24, 38, 52, 66, 80, 94, 108, 122, 136, 150]
+idx_pos_conf = [14, 28, 42, 56, 70, 84, 98, 112, 126, 140, 154, 158, 162, 166,
                 170]
 
 dim_ori = 9
