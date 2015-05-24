@@ -113,7 +113,6 @@ while 1:
     logInfo.mark('# epoch: {}\
         \tcost_train: {}\tlearning_rate: {}\ttime: {}'\
         .format(epoch, cost_train, lr, toc-tic))
-    print prev_cost_train
 
     # learning rate decay
     if prev_cost_train - cost_train <= epsl_decay:
