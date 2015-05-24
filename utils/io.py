@@ -30,10 +30,10 @@ def read_skeleton_data(filename):
     """
     len_seq = sum(1 for line in open(filename))
 
-    ori = numpy.zeros((len_seq, 9*11))
-    pos = numpy.zeros((len_seq, 3*15))
-    ori_conf = numpy.zeros((len_seq, 11))
-    pos_conf = numpy.zeros((len_seq, 15))
+    ori = numpy.zeros((len_seq, 9*11), dtype = numpy.float32)
+    pos = numpy.zeros((len_seq, 3*15), dtype = numpy.float32)
+    ori_conf = numpy.zeros((len_seq, 11), dtype = numpy.float32)
+    pos_conf = numpy.zeros((len_seq, 15), dtype = numpy.float32)
 
     row = 0
     for line in open(filename):
@@ -55,85 +55,144 @@ def read_skeleton_data(filename):
     return ori, ori_conf, pos, pos_conf
 
 
-def read_activity(path):
+def read_activities(path_activity):
     """
     Read the activity sequences of skeleton movements in a activity pathectory. 
     """
-    path_label = os.path.join(path, 'activityLabel.txt')
+    path_label = os.path.join(path_activity, 'activityLabel.txt')
 
-    activity_list = []
+    activities = {}
 
     for line in open(path_label):
         activity = {}
 
         words = line.split(',')
+
         id = int(words[0])
         activity_id = words[1]
         subject_id = words[2]
-        activity['id'] = id
         activity['activity_id'] = activity_id
 
         objects = []
         for i in range(3, len(words)-1):
-            """
-            obj_info = words[i].split(':')
-            object_id = obj_info[0]
-            object_type = obj_info[1]
-            objects.append(object_type)
-            """
-            object_id, object_type = words[i].split(':')
+            object_id, object_type = words[i].strip().split(':')
             objects.append(object_type)
         activity['objects'] = objects
 
-        path_subact = os.path.join(path, words[0] + '.txt')
+        path_subact = os.path.join(path_activity, words[0] + '.txt')
         ori, ori_conf, pos, pos_conf = read_skeleton_data(path_subact)
         activity['ori'] = ori
         activity['ori_conf'] = ori_conf
         activity['pos'] = pos
         activity['pos_conf'] = pos_conf
 
-        activity_list.append(activity)
+        activities[id] = activity
 
-    return activity_list
+    return activities
             
 
-def read_subject(path):
+def read_labeling(path_activity):
+    """
+    Read labeling.txt. 
+    """
+    path_labeling = os.path.join(path_activity, 'labeling.txt')
+
+    labeling = {}
+
+    for line in open(path_labeling):
+        sub_activity = {}
+
+        words = line.strip('\n').split(',')
+        id = int(words[0])
+        start_frame = int(words[1])
+        end_frame = int(words[2])
+        sub_activity_id = words[3]
+
+        affordances = []
+        for i in range(4, len(words)):
+                affordance_id = words[i]
+                affordances.append(affordance_id)
+
+        sub_activity['start_frame'] = start_frame - 1   # 1-based to 0-based
+        sub_activity['end_frame'] = end_frame - 1       # 1-based to 0-based
+        sub_activity['sub_activity_id'] = sub_activity_id
+        sub_activity['affordances'] = affordances
+
+        if not labeling.has_key(id):
+            labeling[id] = []
+
+        labeling[id].append(sub_activity)
+
+    return labeling
+
+
+def read_subject(path_subject):
     """
     Read all activity sequences of skeleton movements in a Subject folder.
     """
     subject = {}
 
-    for activity_label in os.listdir(path):
-        path_activity = os.path.join(path, activity_label)
+    for activity_label in os.listdir(path_subject):
+        path_activity = os.path.join(path_subject, activity_label)
         if os.path.isdir(path_activity):
-            activity = read_activity(path_activity)             
-            subject[activity_label] = activity 
+            activities = read_activities(path_activity)             
+            labeling = read_labeling(path_activity)             
+
+            directory = {}
+            directory['activities'] = activities
+            directory['labeling'] = labeling
+
+            subject[activity_label] = directory
 
     return subject
+    
 
-
-def print_activity_list(activity_list):
+def print_activities(activities):
     """
-    Print the activity list. 
+    Print the activities on the screen. 
     """
-    for activity in activity_list:
+    for id, activity in activities.iteritems():
         print '------------------------------'
-        print 'id: {}'.format(activity['id'])
+        print 'id: {}'.format(id)
         print 'activity_id: {}'.format(activity['activity_id'])
         print 'objects: {}'.format(activity['objects'])
 
         print 'seq_len: {}'.format(activity['ori'].shape[0])
-        # print 'ori shape: {}'.format(activity['ori'].shape)
-        # print 'ori_conf shape: {}'.format(activity['ori_conf'].shape)
-        # print 'pos shape: {}'.format(activity['pos'].shape)
-        # print 'pos_conf shape: {}'.format(activity['pos_conf'].shape)
+
+
+def print_labeling(labeling):
+    """
+    Print the labeling on the screen. 
+    """
+    raise Exception('Not implemented yet. ')
 
 
 def print_subject(subject):
     """
-    Print the subject. 
+    Print the subject on the screen. 
     """
-    for activity_label, activity_list in subject.iteritems():
-        print '############################################################'
+
+    for activity_label, directory in subject.iteritems():
+        print '------------------------- <Directory> -------------------------'
         print 'activity_label: {}'.format(activity_label)
-        print_activity_list(activity_list)
+        activities = directory['activities']
+        labeling = directory['labeling']
+
+        for id in activities.keys():
+            print '\t--------------- <Activity> ---------------'
+            print '\tid: {}'.format(id)
+
+            activity = activities[id]
+            print '\tactivity_id: {}'.format(activity['activity_id'])
+            print '\tobjects: {}'.format(activity['objects'])
+            print '\tseq_len: {}'.format(activity['ori'].shape[0])
+
+            sub_activities = labeling[id]
+            for sub_activity in sub_activities:
+                print '\t\t----- <Sub-activity> -----'
+                print '\t\tsub_activity_id: {}'.format(
+                        sub_activity['sub_activity_id'])
+                print '\t\tstart_frame: {}'.format(sub_activity['start_frame'])
+                print '\t\tend_frame: {}'.format(sub_activity['end_frame'])
+                print '\t\taffordances: {}'.format(sub_activity['affordances'])
+
