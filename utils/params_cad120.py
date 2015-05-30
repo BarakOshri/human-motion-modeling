@@ -46,72 +46,53 @@ idx_pos_conf = [14, 28, 42, 56, 70, 84, 98, 112, 126, 140, 154, 158, 162, 166,
 
 dim_ori = 9
 dim_pos = 3
-num_ori = len(idx_ori) / dim_ori
-num_pos = len(idx_pos) / dim_pos
+len_ori = len(idx_ori)
+len_pos = len(idx_pos)
+num_ori = len_ori / dim_ori
+num_pos = len_pos / dim_pos
 
 
 # connect relationship
-"""
-HEAD - NECK
-LEFT_HIP - RIGHT_HIP
-
-
-NECK - LEFT_SHOULDER
-LEFT_SHOULDER - TORSOR
-TORSOR - LEFT_HIP
-
-LEFT_SHOULDER - LEFT_ELBOW
-LEFT_ELBOW - LEFT_HAND
-
-LEFT_HIP - LEFT_KNEE
-LEFT_KNEE - LEFT_FOOT
-
-
-NECK - RIGHT_SHOULDER
-RIGHT_SHOULDER - TORSOR
-TORSOR - RIGHT_HIP
-
-RIGHT_SHOULDER - RIGHT_ELBOW
-RIGHT_ELBOW - RIGHT_HAND
-
-RIGHT_HIP - RIGHT_KNEE
-RIGHT_KNEE - RIGHT_FOOT
-"""
-
-"""
-1 - 2
-8 - 10
-
-
-2 - 4
-4 - 3
-3 - 8
-
-4 - 5
-5 - 12
-
-8 - 9
-9 - 14
-
-
-2 - 6
-6 - 3
-3 - 10
-
-6 - 7
-7 - 13
-
-10 - 11
-11 - 15
-"""
-
 # 1-based index
-connect_1based = [(1, 2), (8, 10), 
-                    (2, 4), (4, 3), (3, 8),
-                    (4, 5), (5, 12), (8, 9), (9, 14),
-                    (2, 6), (6, 3), (3, 10),
-                    (6, 7), (7, 13), (10, 11), (11, 15)]
+joint_idx_1based = {}
+joint_idx_1based['head']            = 1
+joint_idx_1based['neck']            = 2
+joint_idx_1based['torso']           = 3
+joint_idx_1based['left_shoulder']   = 4
+joint_idx_1based['left_elbow']      = 5
+joint_idx_1based['right_shoulder']  = 6
+joint_idx_1based['right_elbow']     = 7
+joint_idx_1based['left_hip']        = 8
+joint_idx_1based['left_knee']       = 9
+joint_idx_1based['right_hip']       = 10
+joint_idx_1based['right_knee']      = 11
+joint_idx_1based['left_hand']       = 12
+joint_idx_1based['right_hand']      = 13
+joint_idx_1based['left_foot']       = 14
+joint_idx_1based['right_foot']      = 15
 
 # 0-based index
-connect = [(a-1, b-1) for a, b in connect_1based]
+joint_idx = {}
+for joint_name in joint_idx_1based.keys():
+    joint_idx[joint_name] = joint_idx_1based[joint_name] - 1
+
+# breath first search of the tree structure
+joint_connect = [\
+    ('torso', 'neck'), ('torso', 'left_shoulder'), ('torso', 'right_shoulder'), 
+    ('torso', 'left_hip'), ('torso', 'right_hip'), 
+
+    ('neck', 'head'),
+    ('left_shoulder', 'left_elbow'),
+    ('right_shoulder', 'right_elbow'),
+    ('left_hip', 'left_knee'), 
+    ('right_hip', 'right_knee'), 
+
+    ('left_elbow', 'left_hand'),
+    ('right_elbow', 'right_hand'),
+    ('left_knee', 'left_foot'),
+    ('right_knee', 'right_foot')]
+
+# 0-based index
+connect = [(joint_idx[parent], joint_idx[child])
+            for parent, child in joint_connect]
 

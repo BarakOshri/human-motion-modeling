@@ -7,11 +7,6 @@ from scipy import misc
 
 from params_cad120 import *
 
-# class SubActivity(object):
-# 
-#     def __init__(self, id, act_id, obj_id, obj_type):
-#         self.id = id
-
 
 def read_activity_labels(filename):
     """
@@ -28,7 +23,7 @@ def read_skeleton_data(filename):
     """
     Read a sequence of skeleton movements. 
     """
-    len_seq = sum(1 for line in open(filename))
+    len_seq = sum(1 for line in open(filename))-1
 
     ori = numpy.zeros((len_seq, 9*11), dtype = numpy.float32)
     pos = numpy.zeros((len_seq, 3*15), dtype = numpy.float32)
@@ -85,6 +80,9 @@ def read_activities(path_activity):
         activity['ori_conf'] = ori_conf
         activity['pos'] = pos
         activity['pos_conf'] = pos_conf
+
+        pos_rel = world_to_relative_pos(pos)
+        activity['pos_rel'] = pos_rel
 
         activities[id] = activity
 
@@ -195,4 +193,93 @@ def print_subject(subject):
                 print '\t\tstart_frame: {}'.format(sub_activity['start_frame'])
                 print '\t\tend_frame: {}'.format(sub_activity['end_frame'])
                 print '\t\taffordances: {}'.format(sub_activity['affordances'])
+
+
+def world_to_relative_pos(pos):
+    """
+
+    """
+    pos_rel = pos.copy()
+
+    for p, c in reversed(connect):
+        pos_rel[:, c*dim_pos+0] -= pos_rel[:, p*dim_pos+0]
+        pos_rel[:, c*dim_pos+1] -= pos_rel[:, p*dim_pos+1]
+        pos_rel[:, c*dim_pos+2] -= pos_rel[:, p*dim_pos+2]
+
+    return pos_rel
+
+
+def relative_to_world_pos(pos_rel):
+    """
+
+    """
+    pos = pos_rel.copy()
+
+    for p, c in connect:
+        pos[:, c*dim_pos+0] += pos[:, p*dim_pos+0]
+        pos[:, c*dim_pos+1] += pos[:, p*dim_pos+1]
+        pos[:, c*dim_pos+2] += pos[:, p*dim_pos+2]
+
+    return pos
+
+# def world_to_relative_pos(pos):
+#     """
+# 
+#     """
+#     pos_rel = numpy.zeros(pos.shape)
+# 
+#     for p, c in reversed(connect):
+#         pos_rel[:, c*dim_pos+0] = pos[:, c*dim_pos+0] - pos[:, p*dim_pos+0]
+#         pos_rel[:, c*dim_pos+1] = pos[:, c*dim_pos+1] - pos[:, p*dim_pos+1]
+#         pos_rel[:, c*dim_pos+2] = pos[:, c*dim_pos+2] - pos[:, p*dim_pos+2]
+# 
+#     root = connect[0][0]
+#     pos_rel[:, root*dim_pos+0] = pos[:, root*dim_pos+0]
+#     pos_rel[:, root*dim_pos+1] = pos[:, root*dim_pos+1]
+#     pos_rel[:, root*dim_pos+2] = pos[:, root*dim_pos+2]
+# 
+#     return pos_rel
+# 
+# 
+# def relative_to_world_pos(pos_rel):
+#     """
+# 
+#     """
+#     pos = numpy.zeros(pos_rel.shape)
+# 
+#     root = connect[0][0]
+#     pos[:, root*dim_pos+0] = pos_rel[:, root*dim_pos+0]
+#     pos[:, root*dim_pos+1] = pos_rel[:, root*dim_pos+1]
+#     pos[:, root*dim_pos+2] = pos_rel[:, root*dim_pos+2]
+# 
+#     for p, c in connect:
+#         pos[:, c*dim_pos+0] = pos_rel[:, c*dim_pos+0] + pos_rel[:, p*dim_pos+0]
+#         pos[:, c*dim_pos+1] = pos_rel[:, c*dim_pos+1] + pos_rel[:, p*dim_pos+1]
+#         pos[:, c*dim_pos+2] = pos_rel[:, c*dim_pos+2] + pos_rel[:, p*dim_pos+2]
+# 
+#     return pos
+
+# def world_to_relative_pos(subject):
+#     """
+#     Print the subject on the screen. 
+#     """
+# 
+#     for activity_label, directory in subject.iteritems():
+#         activities = directory['activities']
+#         labeling = directory['labeling']
+# 
+#         for id in activities.keys():
+#             activity = activities[id]
+#             pos = activity['pos']
+# 
+#             for i in range(pos.shape[0]):
+#                 root = joint_idx['torsor']
+#                 for j in range(num_pos):
+#                     if j != root:
+#                         pos[i, j*dim_pos+0] -= pos[i, root*dim_pos+0]
+#                         pos[i, j*dim_pos+1] -= pos[i, root*dim_pos+1]
+#                         pos[i, j*dim_pos+2] -= pos[i, root*dim_pos+2]
+# 
+#             subject[activity_label]['activities'][id]['relative_pos'] = pos
+# 
 

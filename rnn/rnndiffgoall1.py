@@ -16,6 +16,8 @@ class RNNL1(object):
         # parameters of the model
         self.Wx  = theano.shared(0.2 * numpy.random.uniform(-1.0, 1.0,\
                    (dimx, dimh)).astype(theano.config.floatX))
+        self.Wgl  = theano.shared(0.2 * numpy.random.uniform(-1.0, 1.0,\
+                   (dimx, dimh)).astype(theano.config.floatX))
         self.Wh  = theano.shared(0.2 * numpy.random.uniform(-1.0, 1.0,\
                    (dimh, dimh)).astype(theano.config.floatX))
         self.W   = theano.shared(0.2 * numpy.random.uniform(-1.0, 1.0,\
@@ -25,15 +27,25 @@ class RNNL1(object):
         self.h0  = theano.shared(numpy.zeros(dimh, dtype=theano.config.floatX))
 
         # bundle
-        self.params = [self.Wx, self.Wh, self.W, self.bh, self.b, self.h0 ]
-        self.names  = ['Wx', 'Wh', 'W', 'bh', 'b', 'h0']
-        x = T.matrix(name='x') 
-        d = T.matrix(name='d') # output: optical flow
+        self.params = [self.Wx, self.Wgl, self.Wh, self.W, self.bh, self.b, 
+                        self.h0 ]
+        self.names  = ['Wx', 'Wgl', 'Wh', 'W', 'bh', 'b', 'h0']
+        x = T.fmatrix(name='x') 
+        # gl = T.fmatrix(name='gl') # goal state
+        gl = T.fvector(name='gl') # goal state
+        d = T.fmatrix(name='d') 
+
+        # def recurrence(x_t, gl_t, h_tm1):
+        #     h_t = T.nnet.sigmoid(T.dot(x_t, self.Wx) + T.dot(gl_t, self.Wgl) +
+        #                             T.dot(h_tm1, self.Wh) + self.bh)
+        #     s_t = T.dot(h_t, self.W) + self.b + x_t
+        #     # s_t = T.nnet.softmax(T.dot(h_t, self.W) + self.b)
+        #     return [h_t, s_t]
 
         def recurrence(x_t, h_tm1):
-            h_t = T.nnet.sigmoid(T.dot(x_t, self.Wx) + T.dot(h_tm1, self.Wh)\
-                                + self.bh)
-            s_t = T.dot(h_t, self.W) + self.b
+            h_t = T.nnet.sigmoid(T.dot(x_t, self.Wx) + T.dot(gl, self.Wgl) +\
+                                    T.dot(h_tm1, self.Wh) + self.bh)
+            s_t = T.dot(h_t, self.W) + self.b + x_t
             # s_t = T.nnet.softmax(T.dot(h_t, self.W) + self.b)
             return [h_t, s_t]
 
@@ -51,13 +63,13 @@ class RNNL1(object):
                                 for p, g in zip( self.params , gradients))
         
         # theano functions
-        self.predict = theano.function(inputs=[x], outputs=s)
+        self.predict = theano.function(inputs=[x, gl], outputs=s)
 
-        self.train = theano.function( inputs  = [x, d, lr],
+        self.train = theano.function( inputs  = [x, gl, d, lr],
                                       outputs = cost,
                                       updates = updates )
 
-        self.get_cost = theano.function(inputs = [x, d], outputs = cost)
+        self.getCost = theano.function(inputs = [x, gl,  d], outputs = cost)
 
     def updateparams(self, newparams):
         def inplaceupdate(x, new):
@@ -82,4 +94,6 @@ class RNNL1(object):
 
     def load(self, filename):
         self.updateparams(numpy.load(filename))
+
+
 

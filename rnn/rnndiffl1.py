@@ -33,7 +33,7 @@ class RNNL1(object):
         def recurrence(x_t, h_tm1):
             h_t = T.nnet.sigmoid(T.dot(x_t, self.Wx) + T.dot(h_tm1, self.Wh)\
                                 + self.bh)
-            s_t = T.dot(h_t, self.W) + self.b
+            s_t = T.dot(h_t, self.W) + self.b + x_t
             # s_t = T.nnet.softmax(T.dot(h_t, self.W) + self.b)
             return [h_t, s_t]
 
@@ -82,4 +82,5 @@ class RNNL1(object):
 
     def load(self, filename):
         self.updateparams(numpy.load(filename))
+
 

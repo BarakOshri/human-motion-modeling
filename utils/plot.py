@@ -123,6 +123,7 @@ def animate_skeleton(pos, posconf, connect,
     zlim: int tuple
         Limitation of the z axis on the plot. 
     """
+    # create fig and ax if needed
     if fig == None or ax == None:
         figsize = (10, 10)
         xlim = (-1500, 1500)
@@ -142,10 +143,12 @@ def animate_skeleton(pos, posconf, connect,
 
     len_seq = pos.shape[0]
 
+    # initialize
     plot_confpos =\
         ax.scatter([], [], [], c=c[0], s=dotsize, alpha=alpha, animated=True)
     plot_uncfpos =\
         ax.scatter([], [], [], c=c[1], s=dotsize, alpha=alpha)
+
     # emphasize the head
     plot_head =\
         ax.scatter([], [], [], c='y', s=dotsize*3, alpha=alpha)  
@@ -202,9 +205,9 @@ def animate_skeleton(pos, posconf, connect,
                                     np.ma.ravel(uncfposY), 
                                     np.ma.ravel(uncfposZ))
 
-        plot_head._offsets3d = (np.ma.ravel([pos_t[0]]), 
-                                    np.ma.ravel([pos_t[2]]), 
-                                    np.ma.ravel([pos_t[1]]))
+        plot_head._offsets3d = (np.ma.ravel([pos_t[joint_idx['head']+0]]), 
+                                    np.ma.ravel([pos_t[joint_idx['head']+2]]), 
+                                    np.ma.ravel([pos_t[joint_idx['head']+1]]))
 
         i = 0
         for line in plot_lines:
@@ -212,7 +215,7 @@ def animate_skeleton(pos, posconf, connect,
             line[0].set_3d_properties([lineZ1[i], lineZ2[i]])
             i += 1
 
-        # display fram number
+        # TODO: display frame number on the plot
 
         return [plot_confpos] + [plot_uncfpos] + [plot_head] + plot_lines
 
