@@ -6,6 +6,7 @@ import numpy.random
 from scipy import misc
 
 from params_cad120 import *
+from rotation import * 
 
 
 def read_activity_labels(filename):
@@ -81,8 +82,8 @@ def read_activities(path_activity):
         activity['pos'] = pos
         activity['pos_conf'] = pos_conf
 
-        pos_rel = world_to_relative_pos(pos)
-        activity['pos_rel'] = pos_rel
+        # pos_rel = world_to_relative_pos(pos)
+        # activity['pos_rel'] = pos_rel
 
         activities[id] = activity
 
@@ -185,6 +186,8 @@ def print_subject(subject):
             print '\tobjects: {}'.format(activity['objects'])
             print '\tseq_len: {}'.format(activity['ori'].shape[0])
 
+            # print '\tseq_len: {}'.format(activity['pos_rel'])
+
             sub_activities = labeling[id]
             for sub_activity in sub_activities:
                 print '\t\t----- <Sub-activity> -----'
@@ -195,9 +198,24 @@ def print_subject(subject):
                 print '\t\taffordances: {}'.format(sub_activity['affordances'])
 
 
+
+"""
+Relative Position
+"""
+
 def world_to_relative_pos(pos):
     """
+    Convert world position array pos into relative position array. 
 
+    Parameters
+    ----------
+    pos: numpy array
+        World position array. 
+
+    Returns
+    -------
+    pos_rel: numpy array
+        Relative position array. 
     """
     pos_rel = pos.copy()
 
@@ -211,7 +229,17 @@ def world_to_relative_pos(pos):
 
 def relative_to_world_pos(pos_rel):
     """
+    Convert relative position array pos into world position array. 
 
+    Parameters
+    ----------
+    pos_rel: numpy array
+        Relative position array. 
+
+    Returns
+    -------
+    pos: numpy array
+        World position array. 
     """
     pos = pos_rel.copy()
 
@@ -222,64 +250,141 @@ def relative_to_world_pos(pos_rel):
 
     return pos
 
-# def world_to_relative_pos(pos):
-#     """
+
+def subject_get_relative_position(subject):
+    """
+    Compute relative position array for each activity in subject. 
+    """
+    # for activity_label in subject.keys():
+    #     for id in directory[activity_label]['activities'].keys():
+    #         pos = directory[activity_label]['activities'][id]['pos']
+    #         pos_rel = world_to_relative_pos(activity['pos'])
+    #         directory[activity_label]['activities'][id]['pos_rel'] = pos_rel
+
+    for activity_label, directory in subject.iteritems():
+        activities = directory['activities']
+        labeling = directory['labeling']
+
+        for id in activities.keys():
+            activity = activities[id]
+            pos_rel = world_to_relative_pos(activity['pos'])
+
+            activity['pos_rel'] = pos_rel
+
+    return subject
+
+
+def subject_get_relative_position(subject):
+    """
+    Compute relative position array for each activity in subject. 
+    """
+    # for activity_label in subject.keys():
+    #     for id in directory[activity_label]['activities'].keys():
+    #         pos = directory[activity_label]['activities'][id]['pos']
+    #         pos_rel = world_to_relative_pos(activity['pos'])
+    #         directory[activity_label]['activities'][id]['pos_rel'] = pos_rel
+
+    for activity_label, directory in subject.iteritems():
+        activities = directory['activities']
+        labeling = directory['labeling']
+
+        for id in activities.keys():
+            activity = activities[id]
+            pos_rel = world_to_relative_pos(activity['pos'])
+
+            activity['pos_rel'] = pos_rel
+
+    return subject
+
+
+def vec2rmat(a):
+    """
+    Convert a 9-dim vector to a 3x3 rotation matrix.  
+    """
+    return numpy.reshape(a, (3, 3))
+
+
+def pos2data(pos, ori):
+    """
+    """
+    # root = joint_idx['torso']
+
+    data = numpy.zeros((pos.shape[0], 3+len_pos))
+
+    p_o = [None] * (num_pos-1)
+
+    for row in range(pos.shape[0]):
+        rmat = numpy.reshape(ori[row, root*dim_ori+0:(root+1)*dim_ori], 
+                            (3, 3))
+        v_root = rmat_to_r3(rmat)
+        p_root = pos[row, root*dim_pos:(root+1)*dim_pos]
+
+        cnt = 0;
+        for j in range(num_pos):
+            if j != root:
+                """
+                pos_w(x) = pos_w(o) + rmat_w(o) * pos_o(x)
+                pos_w(o) = rmat_w(o)^T * (pos_w(x) - pos_w(o))
+                """
+                p_w = pos[row, j*dim_pos:(j+1)*dim_pos]
+                p_o[cnt] = numpy.dot(rmat.T, p_w - p_root)
+                cnt += 1
+
+        data[row, :] =  numpy.concatenate([v_root, p_root] + p_o, axis=1)
+
+    return data
+
+
+
+def data2pos(data):
+    """
+    """
+    # root = joint_idx['torso']
+    pos = numpy.zeros((data.shape[0], len_pos))
+
+    for row in range(data.shape[0]):
+        v_root = data[row, 0:3]
+        p_root = data[row, 3:6]
+
+        rmat = r3_to_rmat(v_root)
+
+        cnt = 0;
+        for j in range(num_pos):
+            if j == root:
+                p_w = p_root 
+            else:
+                p_o = data[row, 6+cnt*dim_pos:6+(cnt+1)*dim_pos]
+                p_w = p_root + numpy.dot(rmat, p_o)
+                cnt += 1
+            pos[row, j*dim_pos:(j+1)*dim_pos] = p_w
+
+    return pos
+
+
+# """
+# Relative Orientation
+# """
 # 
+# def world_to_relative_ori(ori):
 #     """
-#     pos_rel = numpy.zeros(pos.shape)
+#     Convert world orientaion array ori into torsor-centric 
+#     relative orientation array. 
+# 
+#     Parameters
+#     ----------
+#     ori: numpy array
+#         World orientaion array. 
+# 
+#     Returns
+#     -------
+#     ori_rel: numpy array
+#         Relative orientation array. 
+#     """
+#     ori_rel = ori.copy()
 # 
 #     for p, c in reversed(connect):
-#         pos_rel[:, c*dim_pos+0] = pos[:, c*dim_pos+0] - pos[:, p*dim_pos+0]
-#         pos_rel[:, c*dim_pos+1] = pos[:, c*dim_pos+1] - pos[:, p*dim_pos+1]
-#         pos_rel[:, c*dim_pos+2] = pos[:, c*dim_pos+2] - pos[:, p*dim_pos+2]
+#         ori_rel[:, c*dim_ori+0] -= ori_rel[:, p*dim_ori+0]
+#         ori_rel[:, c*dim_ori+1] -= ori_rel[:, p*dim_ori+1]
+#         ori_rel[:, c*dim_ori+2] -= ori_rel[:, p*dim_ori+2]
 # 
-#     root = connect[0][0]
-#     pos_rel[:, root*dim_pos+0] = pos[:, root*dim_pos+0]
-#     pos_rel[:, root*dim_pos+1] = pos[:, root*dim_pos+1]
-#     pos_rel[:, root*dim_pos+2] = pos[:, root*dim_pos+2]
-# 
-#     return pos_rel
-# 
-# 
-# def relative_to_world_pos(pos_rel):
-#     """
-# 
-#     """
-#     pos = numpy.zeros(pos_rel.shape)
-# 
-#     root = connect[0][0]
-#     pos[:, root*dim_pos+0] = pos_rel[:, root*dim_pos+0]
-#     pos[:, root*dim_pos+1] = pos_rel[:, root*dim_pos+1]
-#     pos[:, root*dim_pos+2] = pos_rel[:, root*dim_pos+2]
-# 
-#     for p, c in connect:
-#         pos[:, c*dim_pos+0] = pos_rel[:, c*dim_pos+0] + pos_rel[:, p*dim_pos+0]
-#         pos[:, c*dim_pos+1] = pos_rel[:, c*dim_pos+1] + pos_rel[:, p*dim_pos+1]
-#         pos[:, c*dim_pos+2] = pos_rel[:, c*dim_pos+2] + pos_rel[:, p*dim_pos+2]
-# 
-#     return pos
-
-# def world_to_relative_pos(subject):
-#     """
-#     Print the subject on the screen. 
-#     """
-# 
-#     for activity_label, directory in subject.iteritems():
-#         activities = directory['activities']
-#         labeling = directory['labeling']
-# 
-#         for id in activities.keys():
-#             activity = activities[id]
-#             pos = activity['pos']
-# 
-#             for i in range(pos.shape[0]):
-#                 root = joint_idx['torsor']
-#                 for j in range(num_pos):
-#                     if j != root:
-#                         pos[i, j*dim_pos+0] -= pos[i, root*dim_pos+0]
-#                         pos[i, j*dim_pos+1] -= pos[i, root*dim_pos+1]
-#                         pos[i, j*dim_pos+2] -= pos[i, root*dim_pos+2]
-# 
-#             subject[activity_label]['activities'][id]['relative_pos'] = pos
-# 
-
+#     return ori_rel

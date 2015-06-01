@@ -18,7 +18,7 @@ def r3_to_quat(v):
         quat = Quat((0, 0, 0, 1))
     else:
         theta = numpy.linalg.norm(v)
-        print 'r3_to_quat:theta: {}'.format(theta)  # debug
+        # print 'r3_to_quat:theta: {}'.format(theta)  # debug
 
         if theta <= MACHINE_PRECISION:
             s = 1/2 + theta**2 / 48
@@ -31,12 +31,24 @@ def r3_to_quat(v):
 
 def quat_to_r3(quat):
     """
-    Reverse xponential map from vector in R^3 to quaternion in S^3. 
+    Reverse exponential map from vector in R^3 to quaternion in S^3. 
     theta = 2 * arccos(quat.q[3])
     v = quat.q[0:3] / sin(1/2 * theta) * theta
     """
     theta = 2 * numpy.arccos(quat.q[3])
-    print 'quat_to_r3:theta: {}'.format(theta)  # debug
+    # print 'quat_to_r3:theta: {}'.format(theta)  # debug
     v = quat.q[0:3] / numpy.sin(0.5 * theta) * theta
     return v
 
+def r3_to_rmat(v):
+    """
+    Convert exponential map vector to rotation matrix (via quaternion). 
+    """
+    return r3_to_quat(v)._quat2transform()
+
+def rmat_to_r3(rmat):
+    """
+    Convert rotation matrix to exponential map vector (via quaternion). 
+    """
+    return quat_to_r3(Quat(rmat))
+    
