@@ -1,2 +1,0 @@
-# action-prediction
-Action prediction

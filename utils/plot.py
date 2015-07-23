@@ -9,8 +9,7 @@ from mpl_toolkits.mplot3d.axes3d import Axes3D
 from matplotlib.colors import cnames
 from matplotlib import animation
 
-from params_cad120 import *
-
+from IPython.display import HTML
 
 def plot_skeleton(pos_t, posconf_t, connect,
                     dotsize=50, c=['g', 'r', 'b'], alpha=0.8,
@@ -59,8 +58,6 @@ def plot_skeleton(pos_t, posconf_t, connect,
 
     ax.scatter(confposX, confposY, confposZ, c=c[0], s=dotsize, alpha=alpha)
     ax.scatter(uncfposX, uncfposY, uncfposZ, c=c[1], s=dotsize, alpha=alpha)
-    # emphasize the head
-    ax.scatter(pos_t[0], pos_t[2], pos_t[1], c='y', s=dotsize*3)  
 
     lineX1 = [pos_t[p1*3+0] for (p1, p2) in connect]
     lineZ1 = [pos_t[p1*3+1] for (p1, p2) in connect]
@@ -76,7 +73,6 @@ def plot_skeleton(pos_t, posconf_t, connect,
                 [lineZ1[i], lineZ2[i]], c[2])
                 # s=linesize, c=c[2], alpha=alpha) 
     return
-
 
 def animate_skeleton(pos, posconf, connect,
                         dotsize=50, linesize=30, c=['g', 'r', 'b'], alpha=0.8,
@@ -149,10 +145,6 @@ def animate_skeleton(pos, posconf, connect,
     plot_uncfpos =\
         ax.scatter([], [], [], c=c[1], s=dotsize, alpha=alpha)
 
-    # emphasize the head
-    plot_head =\
-        ax.scatter([], [], [], c='y', s=dotsize*3, alpha=alpha)  
-
     plot_lines =\
             [ax.plot([], [], [], c[2]) for i in range(len(connect))]
 
@@ -188,11 +180,10 @@ def animate_skeleton(pos, posconf, connect,
         uncfposZ = [pos_t[i*3+1] for i in find(posconf_t == 0)]
         uncfposY = [pos_t[i*3+2] for i in find(posconf_t == 0)]
 
-
         lineX1 = [pos_t[p1*3+0] for (p1, p2) in connect]
         lineZ1 = [pos_t[p1*3+1] for (p1, p2) in connect]
         lineY1 = [pos_t[p1*3+2] for (p1, p2) in connect]
-
+        
         lineX2 = [pos_t[p2*3+0] for (p1, p2) in connect]
         lineZ2 = [pos_t[p2*3+1] for (p1, p2) in connect]
         lineY2 = [pos_t[p2*3+2] for (p1, p2) in connect]
@@ -200,27 +191,31 @@ def animate_skeleton(pos, posconf, connect,
         plot_confpos._offsets3d = (np.ma.ravel(confposX), 
                                     np.ma.ravel(confposY), 
                                     np.ma.ravel(confposZ))
-
         plot_uncfpos._offsets3d = (np.ma.ravel(uncfposX), 
                                     np.ma.ravel(uncfposY), 
                                     np.ma.ravel(uncfposZ))
-
         plot_head._offsets3d = (np.ma.ravel([pos_t[joint_idx['head']+0]]), 
                                     np.ma.ravel([pos_t[joint_idx['head']+2]]), 
                                     np.ma.ravel([pos_t[joint_idx['head']+1]]))
-
         i = 0
         for line in plot_lines:
             line[0].set_data([lineX1[i], lineX2[i]], [lineY1[i], lineY2[i]])
             line[0].set_3d_properties([lineZ1[i], lineZ2[i]])
             i += 1
-
         # TODO: display frame number on the plot
-
         return [plot_confpos] + [plot_uncfpos] + [plot_head] + plot_lines
-
     anim = animation.FuncAnimation(fig, update, init_func=init,
                                    frames=len_seq, interval=1, blit=True)
-
     return anim
 
+def play_animation(filename='animation.mp4'):
+    """
+    Play the animation file (.mp4) on iPython notebook via HTML5. 
+    # Uility function of animation play in iPython
+    # Note: Not supported well by Chrome
+    """
+    video = open(filename, "rb").read()
+    video_encoded = video.encode("base64")
+    video_tag = '<video controls alt="test" src="data:video/x-m4v;base64,{0}">'\
+                .format(video_encoded)
+    HTML(video_tag)

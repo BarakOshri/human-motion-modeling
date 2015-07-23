@@ -1,4 +1,4 @@
-# Rotation Utility
+# Space Transformation Utility
 import numpy
 from Quaternion import Quat
 
@@ -6,7 +6,8 @@ MACHINE_PRECISION = numpy.finfo(float).eps
 
 def r3_to_quat(v):
     """
-    Exponential map from vector in R^3 to quaternion in S^3. 
+    Exponential map: Tranform vector in R^3 into a quatertion in S^3:
+
     exp([0, 0, 0]^T) = [0, 0, 0, 1]^T
 
     theta = ||v||
@@ -28,10 +29,10 @@ def r3_to_quat(v):
         quat = Quat((s*v[0], s*v[1], s*v[2], numpy.cos(0.5 * theta)))
     return quat
 
-
 def quat_to_r3(quat):
     """
-    Reverse exponential map from vector in R^3 to quaternion in S^3. 
+    Inverse Exponential Map: Tranform quaternion in S^3 into vector in R^3:
+
     theta = 2 * arccos(quat.q[3])
     v = quat.q[0:3] / sin(1/2 * theta) * theta
     """
@@ -52,3 +53,48 @@ def rmat_to_r3(rmat):
     """
     return quat_to_r3(Quat(rmat))
     
+def rotate(x, R):
+    return R.dot(x)
+
+def translate(x, y):
+    return x + y
+
+def pos_transform(x_w, x_space, R_space):
+    """
+    Transform a position in world(parent) space to object(child) space. 
+
+    Parameters
+    ----------
+    x_w: \in R^3
+        Position in world space. 
+    x_space: \in R^3
+        Origin position of the object space. 
+    R_space: \in R^3 X R^3
+        Orientation matrix of the object space. 
+
+    Returns
+    -------
+    x_o: \in R^3 
+        Position in object space
+    """ 
+    return numpy.dot(inv(R), (x_w - w_space))
+
+def pos_inv_transform(x_o, x_space, R_space):
+    """
+    Inverse-transform a position in object(child) space to world(parent) space. 
+
+    Parameters
+    ----------
+    x_o: \in R^3 
+        Position in object space
+    x_space: \in R^3
+        Origin position of the object space. 
+    R_space: \in R^3 X R^3
+        Orientation matrix of the object space. 
+
+    Returns
+    -------
+    x_w: \in R^3
+        Position in world space. 
+    """ 
+    return x_space + numpy.dot(R, x_o)
