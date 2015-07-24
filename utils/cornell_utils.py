@@ -51,7 +51,7 @@ root = joint_idx['torso']
 
 
 # Connection of the Skeleton
-connect = [
+connection = [
             # breath 1 
             (2, 1), 
             (2, 3), 
@@ -155,7 +155,8 @@ def read(path):
     """
     Read a subject
     """
-    return merge(_read_subject(path))
+    pos, posconf, ori, oriconf, subject = merge(_read_subject(path))
+    return pos, posconf, ori, oriconf, subject
 
 
 def _read_activity_labels(filename):
@@ -391,7 +392,7 @@ def print_subject(subject):
 ################################################################################
 # Preprocess Functions (Transform)
 ################################################################################
-def preprocess(joint_idx, connect, pos_t, ori_t):
+def preprocess(joint_idx, connection, pos_t, ori_t):
     """
     Preprocess the data representation from raw position and orientation at each
     time step.
@@ -400,7 +401,7 @@ def preprocess(joint_idx, connect, pos_t, ori_t):
     ----------
         joint_idx: dict
             Index of joints. 
-        connect: list of tuples
+        connection: list of tuples
             Connection of joints in the skeleton. 
         pos_t: numpy array
             Position of joints at a time step.
@@ -445,10 +446,29 @@ def read_and_preprocess(path):
     index = []
     return pos, ori, data, index
 
+def yup2zup(pos, ori):
+    for i in range(pos.shape[0]):
+        for j in range(pos.shape[1]/3):
+            joint_pos = pos[i, j*3:(j+1)*3]
+            pos[i, j*3+1] = joint_pos[None, j*3+2]
+            pos[i, j*3+2] = joint_pos[None, j*3+1]
+
+        for j in range(pos.shape[1]/9):
+            joint_ori = ori[i, j*9:(j+1)*9]
+            ori[i, j*9+3] = joint_ori[None, j*9+6]
+            ori[i, j*9+4] = joint_ori[None, j*9+7]
+            ori[i, j*9+5] = joint_ori[None, j*9+8]
+
+            ori[i, j*9+6] = joint_ori[None, j*9+3]
+            ori[i, j*9+7] = joint_ori[None, j*9+4]
+            ori[i, j*9+8] = joint_ori[None, j*9+5]
+
+    return pos, ori
+
 ################################################################################
 # Postprocess Functions
 ################################################################################
-def postprocess(joint_idx, connect, datum):
+def postprocess(joint_idx, connection, datum):
     """
     Postprocess the data representation into raw position and orientation 
     at each time step.
@@ -457,7 +477,7 @@ def postprocess(joint_idx, connect, datum):
     ----------
         joint_idx: dict
             Index of joints. 
-        connect: list of tuples
+        connection: list of tuples
             Connection of joints in the skeleton. 
         datum: numpy array
             Preprocessed data representation of the skeleton.

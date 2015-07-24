@@ -28,7 +28,7 @@ joint_idx = {
 
 # Connection of the Skeleton
 # TODO: Start your code here:
-connect = [
+connection = [
             # breath 1 
             (2, 1), 
             (2, 3), 
@@ -81,7 +81,7 @@ def read(path):
     raise Exception('Not implemented yet.')
     return 
 
-def preprocess(joint_idx, connect, pos_t, ori_t):
+def preprocess(joint_idx, connection, pos_t, ori_t):
     """
     Preprocess the data representation from raw position and orientation at each
     time step.
@@ -90,7 +90,7 @@ def preprocess(joint_idx, connect, pos_t, ori_t):
     ----------
         joint_idx: dict
             Index of joints. 
-        connect: list of tuples
+        connection: list of tuples
             Connection of joints in the skeleton. 
         pos_t: numpy array
             Position of joints at a time step.
@@ -138,7 +138,7 @@ def read_and_preprocess(path):
 ################################################################################
 # Postprocess Functions
 ################################################################################
-def postprocess(joint_idx, connect, datum):
+def postprocess(joint_idx, connection, datum):
     """
     Postprocess the data representation into raw position and orientation 
     at each time step.
@@ -147,7 +147,7 @@ def postprocess(joint_idx, connect, datum):
     ----------
         joint_idx: dict
             Index of joints. 
-        connect: list of tuples
+        connection: list of tuples
             Connection of joints in the skeleton. 
         datum: numpy array
             Preprocessed data representation of the skeleton.
