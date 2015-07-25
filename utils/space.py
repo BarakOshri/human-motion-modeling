@@ -99,31 +99,3 @@ def pos_inv_transform(x_o, x_space, R_space):
     """ 
     return x_space + numpy.dot(R, x_o)
 
-
-def change_space(pos, ori, t = numpy.zeros(3), R = numpy.eye(3)):
-    """
-    Changing position and orientation arrays into a new coordinate system.
-
-    Parameters
-    ----------
-    pos: numpy array
-    Position array in the current space.
-    ori:
-    Orientation array in the current space.
-    t:
-    Translation vector of the origin of the new space.
-    R:
-    Rotation matrix of the new space.
-    """
-    pos_new = numpy.zeros(pos.shape)
-    ori_new = numpy.zeros(ori.shape)
-    invR = numpy.linalg.inv(R)
-
-    for i in range(pos.shape[0]):
-        for j in range(pos.shape[1]/3):
-            pos_new[i, j*3:(j+1)*3] = numpy.dot(invR, (pos[i, j*3:(j+1)*3] - t))
-
-    for j in range(ori.shape[1]/9):
-        ori_new[i, j*9:(j+1)*9] = (invR * ori[i, j*9:(j+1)*9].reshape(3, 3)).reshape(1, 9)
-
-    return pos_new, ori_new

@@ -446,25 +446,6 @@ def read_and_preprocess(path):
     index = []
     return pos, ori, data, index
 
-def yup2zup(pos, ori):
-    for i in range(pos.shape[0]):
-        for j in range(pos.shape[1]/3):
-            joint_pos = pos[i, j*3:(j+1)*3]
-            pos[i, j*3+1] = joint_pos[None, j*3+2]
-            pos[i, j*3+2] = joint_pos[None, j*3+1]
-
-        for j in range(pos.shape[1]/9):
-            joint_ori = ori[i, j*9:(j+1)*9]
-            ori[i, j*9+3] = joint_ori[None, j*9+6]
-            ori[i, j*9+4] = joint_ori[None, j*9+7]
-            ori[i, j*9+5] = joint_ori[None, j*9+8]
-
-            ori[i, j*9+6] = joint_ori[None, j*9+3]
-            ori[i, j*9+7] = joint_ori[None, j*9+4]
-            ori[i, j*9+8] = joint_ori[None, j*9+5]
-
-    return pos, ori
-
 ################################################################################
 # Postprocess Functions
 ################################################################################
