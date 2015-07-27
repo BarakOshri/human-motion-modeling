@@ -20,10 +20,8 @@ joint_idx = {
             'left_hand': 11, 
             'right_hand': 12, 
             'left_foot': 13, 
-            'right_foot': 14
+            'right_foot': 14,
             }
-
-root = joint_idx['torso']
 
 # Original code of computing index of joints:
 # # 1-based index

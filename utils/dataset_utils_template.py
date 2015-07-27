@@ -123,6 +123,8 @@ def read_and_preprocess(path):
             Position of joints.
         ori: numpy array
             Orientation of joints.
+        offset: numpy array
+            Offset vector corespoding to each connection. 
         data: numpy array
             Preprocessed data representation of skeleton trajectories
         index: list of tuple
@@ -131,14 +133,16 @@ def read_and_preprocess(path):
     # TODO: Start your code here:
     raise Exception('Not implemented yet.')
     pos = numpy.void
+    ori = numpy.void
+    offset = numpy.void
     data = numpy.void
     index = []
-    return pos, ori, data, index
+    return pos, ori, offset, data, index
 
 ################################################################################
 # Postprocess Functions
 ################################################################################
-def postprocess(joint_idx, connection, datum):
+def postprocess(joint_idx, connection, offset, datum):
     """
     Postprocess the data representation into raw position and orientation 
     at each time step.
@@ -149,6 +153,8 @@ def postprocess(joint_idx, connection, datum):
             Index of joints. 
         connection: list of tuples
             Connection of joints in the skeleton. 
+        offset: numpy array
+            Offset vector corespoding to each connection. 
         datum: numpy array
             Preprocessed data representation of the skeleton.
 

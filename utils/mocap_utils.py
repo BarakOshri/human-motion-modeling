@@ -65,3 +65,25 @@ def get_mean_offset(pos, ori, connection):
     for t in range(pos.shape[0]):
         offset[t, :] = get_offset_t(pos[t, :], ori[t, :], connection)
     return numpy.mean(offset, axis=0)
+
+def ori2pos(joint_idx, connection, pos_root, ori, offset):
+    """
+    Recover position of joints from the orientation.
+    """
+    pos = numpy.zeros((pos_root.shape[0], 3*len(joint_idx)))
+
+    # root joint's position and orientation
+    root = joint_idx['torso']
+    pos[:, 3*root:3*(root+1)] = pos_root
+
+    # other joint's position and orientation
+    for t in range(pos.shape[0]):
+        i = 0
+        for (parent, child) in connection:
+            R = joint_ori(ori[t, :], parent)
+            pos_parent = joint_pos(pos[t, :], parent)
+            offset_i = offset[3*i:3*(i+1)]
+            pos[t, 3*child:3*(child+1)] \
+                = pos_parent + numpy.dot(offset_i, R)
+            i += 1
+        return pos
