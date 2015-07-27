@@ -1,5 +1,5 @@
 import os
-import numpy
+import numpy as np
 
 ################################################################################
 # Skeleton Parameters
@@ -104,7 +104,7 @@ def preprocess(joint_idx, connection, pos_t, ori_t):
     """
     # TODO: Start your code here:
     raise Exception('Not implemented yet.')
-    datum = numpy.void
+    datum = np.void
     return datum
 
 def read_and_preprocess(path):
@@ -132,10 +132,10 @@ def read_and_preprocess(path):
     """
     # TODO: Start your code here:
     raise Exception('Not implemented yet.')
-    pos = numpy.void
-    ori = numpy.void
-    offset = numpy.void
-    data = numpy.void
+    pos = np.void
+    ori = np.void
+    offset = np.void
+    data = np.void
     index = []
     return pos, ori, offset, data, index
 
@@ -167,6 +167,6 @@ def postprocess(joint_idx, connection, offset, datum):
     """
     # TODO: Start your code here:
     raise Exception('Not implemented yet.')
-    pos_t = numpy.void
-    ori_t = numpy.void
+    pos_t = np.void
+    ori_t = np.void
     return pos_t, ori_t

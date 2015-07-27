@@ -1,5 +1,5 @@
 import os
-import numpy
+import numpy as np
 
 ################################################################################
 # Skeleton Parameters
@@ -113,11 +113,6 @@ idx_oriconf = [10, 24, 38, 52, 66, 80, 94, 108, 122, 136, 150]
 idx_posconf = [14, 28, 42, 56, 70, 84, 98, 112, 126, 140, 154, 158, 162, 166,
                 170]
 
-dim_ori = 9 # dimension of the orientation of each joint
-dim_pos = 3 # dimension of the position of each joint
-num_ori = len(idx_ori) / dim_ori # number of joints with orientation
-num_pos = len(idx_pos) / dim_pos # number of joints with position
-
 # Original code for computing parameters for loading data:
 # idx_ori = []#[None] * (9*11)
 # idx_pos = []#[None] * (3*15)
@@ -174,10 +169,10 @@ def _read_skeleton_data(filename):
     """
     len_seq = sum(1 for line in open(filename))-1
 
-    ori = numpy.zeros((len_seq, 9*11), dtype = numpy.float32)
-    pos = numpy.zeros((len_seq, 3*15), dtype = numpy.float32)
-    oriconf = numpy.zeros((len_seq, 11), dtype = numpy.float32)
-    posconf = numpy.zeros((len_seq, 15), dtype = numpy.float32)
+    ori = np.zeros((len_seq, 9*11), dtype = np.float32)
+    pos = np.zeros((len_seq, 3*15), dtype = np.float32)
+    oriconf = np.zeros((len_seq, 11), dtype = np.float32)
+    posconf = np.zeros((len_seq, 15), dtype = np.float32)
 
     row = 0
     for line in open(filename):
@@ -189,10 +184,10 @@ def _read_skeleton_data(filename):
         vals = [float(words[i]) for i in range(1 + 9*11+3*15+11+15)]
 
         id = float(words[0])
-        ori[row, :] = numpy.array([vals[idx] for idx in idx_ori])
-        pos[row, :] = numpy.array([vals[idx] for idx in idx_pos])
-        oriconf[row, :] = numpy.array([vals[idx] for idx in idx_oriconf])
-        posconf[row, :] = numpy.array([vals[idx] for idx in idx_posconf])
+        ori[row, :] = np.array([vals[idx] for idx in idx_ori])
+        pos[row, :] = np.array([vals[idx] for idx in idx_pos])
+        oriconf[row, :] = np.array([vals[idx] for idx in idx_oriconf])
+        posconf[row, :] = np.array([vals[idx] for idx in idx_posconf])
 
         row += 1
 
@@ -327,28 +322,28 @@ def merge(subject):
         subject_new[activity_label] = activities_new
 
 
-    pos = numpy.concatenate(\
+    pos = np.concatenate(\
             [activity['pos']
                 for activity_label, directory in subject.iteritems()
                 for id, activity in directory['activities'].iteritems()
             ],
             axis=0)
 
-    ori = numpy.concatenate(\
+    ori = np.concatenate(\
             [activity['ori']
                 for activity_label, directory in subject.iteritems()
                 for id, activity in directory['activities'].iteritems()
             ],
             axis=0)
 
-    posconf = numpy.concatenate(\
+    posconf = np.concatenate(\
             [activity['posconf']
                 for activity_label, directory in subject.iteritems()
                 for id, activity in directory['activities'].iteritems()
             ],
             axis=0)
 
-    oriconf = numpy.concatenate(\
+    oriconf = np.concatenate(\
             [activity['oriconf']
                 for activity_label, directory in subject.iteritems()
                 for id, activity in directory['activities'].iteritems()
@@ -413,7 +408,7 @@ def preprocess(joint_idx, connection, pos_t, ori_t):
     """
     # TODO: Start your code here:
     raise Exception('Not implemented yet.')
-    datum = numpy.void
+    datum = np.void
     return datum
 
 def read_and_preprocess(path):
@@ -439,8 +434,8 @@ def read_and_preprocess(path):
     """
     # TODO: Start your code here:
     raise Exception('Not implemented yet.')
-    pos = numpy.void
-    data = numpy.void
+    pos = np.void
+    data = np.void
     index = []
     return pos, ori, data, index
 
@@ -470,6 +465,6 @@ def postprocess(joint_idx, connection, datum):
     """
     # TODO: Start your code here:
     raise Exception('Not implemented yet.')
-    pos_t = numpy.void
-    ori_t = numpy.void
+    pos_t = np.void
+    ori_t = np.void
     return pos_t, ori_t

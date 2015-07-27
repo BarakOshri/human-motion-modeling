@@ -1,8 +1,8 @@
 # Space Transformation Utility
-import numpy
+import numpy as np
 from Quaternion import Quat
 
-MACHINE_PRECISION = numpy.finfo(float).eps
+MACHINE_PRECISION = np.finfo(float).eps
 
 def r3_to_quat(v):
     """
@@ -15,18 +15,18 @@ def r3_to_quat(v):
     exp(v)  = [sin(1/2 * theta) / theta * v_hat, cos(1/2 * theta)] ^T
             = [1/2 + theta^2 /48 * v, cos(1/2 * theta)] ^T
     """
-    if numpy.array_equal(v, [0, 0, 0]):
+    if np.array_equal(v, [0, 0, 0]):
         quat = Quat((0, 0, 0, 1))
     else:
-        theta = numpy.linalg.norm(v)
+        theta = np.linalg.norm(v)
         # print 'r3_to_quat:theta: {}'.format(theta)  # debug
 
         if theta <= MACHINE_PRECISION:
             s = 1/2 + theta**2 / 48
         else:
-            s = numpy.sin(0.5 * theta) / theta
+            s = np.sin(0.5 * theta) / theta
 
-        quat = Quat((s*v[0], s*v[1], s*v[2], numpy.cos(0.5 * theta)))
+        quat = Quat((s*v[0], s*v[1], s*v[2], np.cos(0.5 * theta)))
     return quat
 
 def quat_to_r3(quat):
@@ -36,9 +36,9 @@ def quat_to_r3(quat):
     theta = 2 * arccos(quat.q[3])
     v = quat.q[0:3] / sin(1/2 * theta) * theta
     """
-    theta = 2 * numpy.arccos(quat.q[3])
+    theta = 2 * np.arccos(quat.q[3])
     # print 'quat_to_r3:theta: {}'.format(theta)  # debug
-    v = quat.q[0:3] / numpy.sin(0.5 * theta) * theta
+    v = quat.q[0:3] / np.sin(0.5 * theta) * theta
     return v
 
 def r3_to_rmat(v):
@@ -77,7 +77,7 @@ def pos_transform(x_w, x_space, R_space):
     x_o: \in R^3 
         Position in object space
     """ 
-    return numpy.dot(inv(R), (x_w - w_space))
+    return np.dot(inv(R), (x_w - w_space))
 
 def pos_inv_transform(x_o, x_space, R_space):
     """
@@ -97,5 +97,5 @@ def pos_inv_transform(x_o, x_space, R_space):
     x_w: \in R^3
         Position in world space. 
     """ 
-    return x_space + numpy.dot(R, x_o)
+    return x_space + np.dot(R, x_o)
 
