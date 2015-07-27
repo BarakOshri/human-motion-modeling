@@ -28,7 +28,7 @@ class RNNL1(object):
         self.params = [self.Wx, self.Wh, self.W, self.bh, self.b, self.h0 ]
         self.names  = ['Wx', 'Wh', 'W', 'bh', 'b', 'h0']
         x = T.matrix(name='x') 
-        d = T.matrix(name='d') # output: optical flow
+        d = T.matrix(name='d')
 
         def recurrence(x_t, h_tm1):
             h_t = T.nnet.sigmoid(T.dot(x_t, self.Wx) + T.dot(h_tm1, self.Wh)\
