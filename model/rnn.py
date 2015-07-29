@@ -74,15 +74,34 @@ class BaseNN(object):
 
 
 class RNNL1(BaseNN):
+    """
+    1-Layer Recurrent Neural Network
+    """
     
     def __init__(self, dim_x, dim_h, dim_y,
                     activation=T.nnet.sigmoid, output_type='real',
                     cumulative=True,
                     numpy_rng=None):
         '''
-        dimh :: dimension of the hidden layer
-        dimx :: dimension of the input
-        dimy :: dimension of output
+        Initialization function.
+
+        Paramters
+        ---------
+        dimx: int
+            Dimension of the input layer.
+        dimh: int
+            Dimension of the hideen layer.
+        dimy: int
+            Dimension of the output layer.
+        activation: theano.tensor.elemwise.Elemwise
+            Activation function.
+        output_type: str
+            Output type. 
+        cumulative: bool
+            If True, the output is cumulative to previous output;
+            if False, it's not. 
+        numpy_rng: 
+            Numpy random number generator.  
         '''
         # parameters
         if not numpy_rng:
@@ -119,7 +138,7 @@ class RNNL1(BaseNN):
         self.lr = T.scalar('lr') # learning rate
 
 
-        [self.h, self.y], _ = theano.scan(fn=self.step,
+        [self.h, self.y], _ = theano.scan(fn=self._step,
                                             sequences=self.x, 
                                             outputs_info=[self.h0, None])
 
@@ -142,7 +161,7 @@ class RNNL1(BaseNN):
                                       updates=updates)
         self.get_loss = theano.function(inputs=[self.x, self.d], 
                                         outputs=self.loss)
-    def step(self, x_t, h_tm1):
+    def _step(self, x_t, h_tm1):
         """
         Recurrent function
         """
@@ -155,9 +174,12 @@ class RNNL1(BaseNN):
         return h_t, y_t
 
     def generate(self, x_seed, n_gen=10):
+        """
+        Genereate seqences of length of n_gen.
+        """
         _x_t = T.vector(name='x_t')
         _h_tm1 = T.vector(name='h_tm1')
-        [_h_t, _y_t] = self.step(_x_t, _h_tm1)
+        [_h_t, _y_t] = self._step(_x_t, _h_tm1)
         _step = theano.function(inputs=[_x_t, _h_tm1], outputs=[_h_t, _y_t])
 
         y_t = np.void
@@ -173,26 +195,133 @@ class RNNL1(BaseNN):
 
         return y_gen
 
+
+class GRNNL1(BaseNN):
+    """
+    Goal-Oriented 1-Layer Recurrent Neural Network
+    """
+    
+    def __init__(self, dim_x, dim_h, dim_y,
+                    activation=T.nnet.sigmoid, output_type='real',
+                    cumulative=True,
+                    numpy_rng=None):
+        '''
+        Initialization function.
+
+        Paramters
+        ---------
+        dimx: int
+            Dimension of the input layer.
+        dimh: int
+            Dimension of the hideen layer.
+        dimy: int
+            Dimension of the output layer.
+        activation: theano.tensor.elemwise.Elemwise
+            Activation function.
+        output_type: str
+            Output type. 
+        cumulative: bool
+            If True, the output is cumulative to previous output;
+            if False, it's not. 
+        numpy_rng: 
+            Numpy random number generator.  
+        '''
+        # parameters
+        if not numpy_rng:
+            self.numpy_rng = np.random.RandomState(1)
+        else:
+            self.numpy_rng = numpy_rng
+
+        Wgh_init = self.init_param((dim_x, dim_h), 'u', 0.2)
+        self.Wgh = theano.shared(value=Wgh_init, name='Wgh')
+
+        Wxh_init = self.init_param((dim_x, dim_h), 'u', 0.2)
+        self.Wxh = theano.shared(value=Wxh_init, name='Wxh')
+
+        Whh_init = self.init_param((dim_h, dim_h), 'u', 0.2)
+        self.Whh = theano.shared(value=Whh_init, name='Whh')
+
+        Why_init = self.init_param((dim_h, dim_y), 'u', 0.2)
+        self.Why = theano.shared(value=Why_init, name='Why')
+
+        bh_init = self.init_param((dim_h,), 'r', 0.)
+        self.bh = theano.shared(value=bh_init, name='bh')
+
+        by_init = self.init_param((dim_y,), 'r', 0.)
+        self.by = theano.shared(value=by_init, name='by')
+
+        h0_init = self.init_param((dim_h,), 'r', 0.)
+        self.h0 = theano.shared(value=h0_init, name='h0')
+
+        self.params = [self.Wxh, self.Wgh, self.Whh, self.Why, 
+                        self.bh, self.by, self.h0 ]
+
+        self.activation = activation
+        self.output_type = output_type
+        self.cumulative = cumulative
+
+        self.g = T.vector(name='g') # goal
+        self.x = T.matrix(name='x') # input
+        self.d = T.matrix(name='d') # groud truth output
+        self.lr = T.scalar('lr') # learning rate
+
+
+        [self.h, self.y], _ = theano.scan(fn=self._step,
+                                            sequences=self.x, 
+                                            outputs_info=[self.h0, None],
+                                            non_sequences=self.g)
+
+        # loss, predict and generate
+        if self.output_type == 'real':
+            self.loss = T.mean((self.d - self.y) ** 2)
+            self.predict = theano.function(inputs=[self.g, self.x], 
+                                            outputs=self.y)
+        else:
+            raise Exception('Undifined output_type: %s,', self.output_type)
+
+        # gradients and learning rate
+        grads = T.grad(self.loss, self.params)
+        updates = OrderedDict((p, p - self.lr*g)\
+                                for p, g in zip( self.params , grads))
         
-        # def step_gen(h_tm1, y_tm1, _A):
-        #     h_t = self.activation(T.dot(y_tm1, self.Wxh) +\
-        #                             T.dot(h_tm1, self.Whh) + self.bh)
-        #     y_t = T.dot(h_t, self.Why) + self.by
-        #     return h_t, y_t
+        # training interfaces
+        self.train = theano.function(inputs=[self.g, self.x, self.d, self.lr],
+                                      outputs=self.loss,
+                                      updates=updates)
+        self.get_loss = theano.function(inputs=[self.g, self.x, self.d], 
+                                        outputs=self.loss)
+    def _step(self, x_t, h_tm1, g):
+        """
+        Recurrent function
+        """
+        h_t = self.activation(T.dot(x_t, self.Wxh) +\
+                                T.dot(g, self.Wgh) +\
+                                T.dot(h_tm1, self.Whh) + self.bh)
+        if self.cumulative:
+            y_t = T.dot(h_t, self.Why) + self.by + x_t
+        else:
+            y_t = T.dot(h_t, self.Why) + self.by
+        return h_t, y_t
 
-        # [h_gen, y_gen], _ = theano.scan(fn=step_gen,
-        #                                     outputs_info=[self.h0, x_gen],
-        #                                     non_sequences=[0],
-        #                                     n_steps=n_gen)
+    def generate(self, g, x_seed, n_gen=10):
+        """
+        Genereate seqences of length of n_gen.
+        """
+        _g = T.vector(name='_g') # goal
+        _x_t = T.vector(name='_x_t')
+        _h_tm1 = T.vector(name='_h_tm1')
+        [_h_t, _y_t] = self._step(_x_t, _h_tm1, _g)
+        _step = theano.function(inputs=[_x_t, _h_tm1, _g], outputs=[_h_t, _y_t])
 
-        # if self.output_type == 'real':
-        #     y_out_gen = y_gen
-        # else:
-        #     raise Exception('Undifined output_type: %s,', self.output_type)
+        y_t = np.void
+        h_t = self.h0.get_value()
+        for t in range(x_seed.shape[0]):
+            h_t, y_t = _step(x_seed[t, :], h_t, g)
 
-        # f_y_gen = theano.function(inputs=[], outputs=y_gen)
-        # f_h_gen = theano.function(inputs=[], outputs=h_gen)
+        y_gen = np.empty((n_gen, x_seed.shape[1]))
+        y_gen[0, :] = y_t
+        for t in range(n_gen-1):
+            h_t, y_t = _step(y_t, h_t, g)
+            y_gen[t+1, :] = y_t
 
-        # return f_y_gen(), f_h_gen()
-
-
+        return y_gen
