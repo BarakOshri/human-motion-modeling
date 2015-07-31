@@ -81,6 +81,7 @@ class RNNL1(BaseNN):
     def __init__(self, dim_x, dim_h, dim_y,
                     activation=T.nnet.sigmoid, output_type='real',
                     cumulative=True,
+                    en_generate=True,
                     numpy_rng=None):
         '''
         Initialization function.
@@ -99,6 +100,9 @@ class RNNL1(BaseNN):
             Output type. 
         cumulative: bool
             If True, the output is cumulative to previous output;
+            if False, it's not. 
+        en_generate: bool
+            If True, generative functions are enabled
             if False, it's not. 
         numpy_rng: 
             Numpy random number generator.  
@@ -137,8 +141,20 @@ class RNNL1(BaseNN):
         self.d = T.matrix(name='d') # groud truth output
         self.lr = T.scalar('lr') # learning rate
 
+        # recurrent function
+        def step(x_t, h_tm1):
+            """
+            Recurrent function
+            """
+            h_t = self.activation(T.dot(x_t, self.Wxh) +\
+                                    T.dot(h_tm1, self.Whh) + self.bh)
+            if self.cumulative:
+                y_t = T.dot(h_t, self.Why) + self.by + x_t
+            else:
+                y_t = T.dot(h_t, self.Why) + self.by
+            return h_t, y_t
 
-        [self.h, self.y], _ = theano.scan(fn=self._step,
+        [self.h, self.y], _ = theano.scan(fn=step,
                                             sequences=self.x, 
                                             outputs_info=[self.h0, None])
 
@@ -155,61 +171,59 @@ class RNNL1(BaseNN):
         updates = OrderedDict((p, p - self.lr*g)\
                                 for p, g in zip( self.params , grads))
         
-        # training interfaces
+        # interfaces
         self.train = theano.function(inputs=[self.x, self.d, self.lr],
                                       outputs=self.loss,
                                       updates=updates)
         self.get_loss = theano.function(inputs=[self.x, self.d], 
                                         outputs=self.loss)
-    def _step(self, x_t, h_tm1):
-        """
-        Recurrent function
-        """
-        h_t = self.activation(T.dot(x_t, self.Wxh) +\
-                                T.dot(h_tm1, self.Whh) + self.bh)
-        if self.cumulative:
-            y_t = T.dot(h_t, self.Why) + self.by + x_t
-        else:
-            y_t = T.dot(h_t, self.Why) + self.by
-        return h_t, y_t
 
-    def generate(self, x_seed, n_gen=10):
-        """
-        Genereate seqences of length of n_gen.
-        """
-        _x_t = T.vector(name='x_t')
-        _h_tm1 = T.vector(name='h_tm1')
-        [_h_t, _y_t] = self._step(_x_t, _h_tm1)
-        _step = theano.function(inputs=[_x_t, _h_tm1], outputs=[_h_t, _y_t])
+        if en_generate:
+            # Note: input and output should have the same dimension.
+            self.n_gen = T.iscalar('n_gen') # number of steps to generate
 
-        y_t = np.void
-        h_t = self.h0.get_value()
-        for t in range(x_seed.shape[0]):
-            h_t, y_t = _step(x_seed[t, :], h_t)
+            # generatation function
+            def generate(h_seed, y_seed):
+                [h_gen, y_gen], _ = theano.scan(
+                    fn=lambda h_tm1, y_tm1: step(y_tm1, h_tm1),
+                    outputs_info= [h_seed, y_seed],
+                    n_steps=self.n_gen)
+                return h_gen, y_gen
 
-        y_gen = np.empty((n_gen, x_seed.shape[1]))
-        y_gen[0, :] = y_t
-        for t in range(n_gen-1):
-            h_t, y_t = _step(y_t, h_t)
-            y_gen[t+1, :] = y_t
+            self.h_gen, self.y_gen = generate(self.h[-1, :], self.y[-1, :])
+            self.generate = theano.function(inputs=[self.x, self.n_gen], 
+                                            outputs=self.y_gen)
 
-        return y_gen
+            # T-step ahead prediction function
+            def predict_T(h_seed, y_seed):
+                h_T, y_T  = generate(h_seed, y_seed)
+                return y_T[-1, :]
+
+            self.y_T, _ = theano.scan(fn=predict_T, 
+                                        sequences=[self.h, self.y])
+
+            self.predict_T = theano.function(inputs=[self.x, self.n_gen],
+                                                outputs=self.y_T)
+         
 
 
 class GRNNL1(BaseNN):
     """
-    Goal-Oriented 1-Layer Recurrent Neural Network
+    1-Layer Recurrent Neural Network with Guidance
     """
     
-    def __init__(self, dim_x, dim_h, dim_y,
+    def __init__(self, dim_g, dim_x, dim_h, dim_y,
                     activation=T.nnet.sigmoid, output_type='real',
                     cumulative=True,
+                    en_generate=True,
                     numpy_rng=None):
         '''
         Initialization function.
 
         Paramters
         ---------
+        dimg: int
+            Dimension of the guidance.
         dimx: int
             Dimension of the input layer.
         dimh: int
@@ -223,6 +237,9 @@ class GRNNL1(BaseNN):
         cumulative: bool
             If True, the output is cumulative to previous output;
             if False, it's not. 
+        en_generate: bool
+            If True, generative functions are enabled
+            if False, it's not. 
         numpy_rng: 
             Numpy random number generator.  
         '''
@@ -232,7 +249,7 @@ class GRNNL1(BaseNN):
         else:
             self.numpy_rng = numpy_rng
 
-        Wgh_init = self.init_param((dim_x, dim_h), 'u', 0.2)
+        Wgh_init = self.init_param((dim_g, dim_h), 'u', 0.2)
         self.Wgh = theano.shared(value=Wgh_init, name='Wgh')
 
         Wxh_init = self.init_param((dim_x, dim_h), 'u', 0.2)
@@ -260,16 +277,29 @@ class GRNNL1(BaseNN):
         self.output_type = output_type
         self.cumulative = cumulative
 
-        self.g = T.vector(name='g') # goal
+        self.g = T.matrix(name='g') # guidance
         self.x = T.matrix(name='x') # input
         self.d = T.matrix(name='d') # groud truth output
         self.lr = T.scalar('lr') # learning rate
+        self.n_gen = T.matrix(name='n_gen') # guidance
 
+        self.g_seed = self.g[:self.x.shape[0], :]
+        self.g_gen = self.g[self.x.shape[0]:, :]
 
-        [self.h, self.y], _ = theano.scan(fn=self._step,
-                                            sequences=self.x, 
-                                            outputs_info=[self.h0, None],
-                                            non_sequences=self.g)
+        # recurrent function
+        def step(g_t, x_t, h_tm1):
+            h_t = self.activation(T.dot(x_t, self.Wxh) +\
+                                    T.dot(g_t, self.Wgh) +\
+                                    T.dot(h_tm1, self.Whh) + self.bh)
+            if self.cumulative:
+                y_t = T.dot(h_t, self.Why) + self.by + x_t
+            else:
+                y_t = T.dot(h_t, self.Why) + self.by
+            return h_t, y_t
+
+        [self.h, self.y], _ = theano.scan(fn=step,
+                                            sequences=[self.g_seed, self.x], 
+                                            outputs_info=[self.h0, None])
 
         # loss, predict and generate
         if self.output_type == 'real':
@@ -290,38 +320,36 @@ class GRNNL1(BaseNN):
                                       updates=updates)
         self.get_loss = theano.function(inputs=[self.g, self.x, self.d], 
                                         outputs=self.loss)
-    def _step(self, x_t, h_tm1, g):
-        """
-        Recurrent function
-        """
-        h_t = self.activation(T.dot(x_t, self.Wxh) +\
-                                T.dot(g, self.Wgh) +\
-                                T.dot(h_tm1, self.Whh) + self.bh)
-        if self.cumulative:
-            y_t = T.dot(h_t, self.Why) + self.by + x_t
-        else:
-            y_t = T.dot(h_t, self.Why) + self.by
-        return h_t, y_t
 
-    def generate(self, g, x_seed, n_gen=10):
-        """
-        Genereate seqences of length of n_gen.
-        """
-        _g = T.vector(name='_g') # goal
-        _x_t = T.vector(name='_x_t')
-        _h_tm1 = T.vector(name='_h_tm1')
-        [_h_t, _y_t] = self._step(_x_t, _h_tm1, _g)
-        _step = theano.function(inputs=[_x_t, _h_tm1, _g], outputs=[_h_t, _y_t])
+        if en_generate:
+            # Note: input and output should have the same dimension.
+            self.n_gen = T.iscalar('n_gen') # number of steps to generate
 
-        y_t = np.void
-        h_t = self.h0.get_value()
-        for t in range(x_seed.shape[0]):
-            h_t, y_t = _step(x_seed[t, :], h_t, g)
+            # generation function
+            def generate(g_gen, h_seed, y_seed):
+                [h_gen, y_gen], _ = theano.scan(
+                    fn=lambda g_t, h_tm1, y_tm1: step(g_t, y_tm1, h_tm1),
+                    sequences=g_gen,
+                    outputs_info= [h_seed, y_seed])
+                return h_gen, y_gen
 
-        y_gen = np.empty((n_gen, x_seed.shape[1]))
-        y_gen[0, :] = y_t
-        for t in range(n_gen-1):
-            h_t, y_t = _step(y_t, h_t, g)
-            y_gen[t+1, :] = y_t
+            self.h_gen, self.y_gen = \
+                generate(self.g_gen, self.h[-1, :], self.y[-1, :])
+            self.generate = theano.function(inputs=[self.g, self.x],
+                                            outputs=self.y_gen)
 
-        return y_gen
+            # # T-step ahead prediction function
+            # def predict_T(g_gen, h_seed, y_seed):
+            #     h_T, y_T  = generate(g_gen, h_seed, y_seed)
+            #     return y_T[-1, :]
+
+            # # self.y_T, _ = theano.scan(fn=predict_T, 
+            # #                             sequences=[self.h, self.y])
+            # self.y_T = T.concatenate(
+            #             [predict_T(self.g[1+t:1+t+self.n_gen], h[t, :], y[t, :])
+            #             for t in range(self.x.get_value().shape[0])],
+            #             axis=0)
+
+            # self.predict_T = theano.function(
+            #                                 inputs=[self.g, self.x, self.n_gen],
+            #                                 outputs=self.y_T)

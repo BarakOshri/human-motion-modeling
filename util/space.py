@@ -77,7 +77,7 @@ def pos_transform(x_w, x_space, R_space):
     x_o: \in R^3 
         Position in object space
     """ 
-    return np.dot(inv(R), (x_w - w_space))
+    return np.dot((x_w - x_space), R_space.T)
 
 def pos_inv_transform(x_o, x_space, R_space):
     """
@@ -97,5 +97,5 @@ def pos_inv_transform(x_o, x_space, R_space):
     x_w: \in R^3
         Position in world space. 
     """ 
-    return x_space + np.dot(R, x_o)
+    return x_space + np.dot(x_o, R_space)
 

@@ -254,7 +254,7 @@ def _read_labeling(path_activity):
                 affordances.append(affordance_id)
 
         sub_activity['start_frame'] = start_frame - 1   # 1-based to 0-based
-        sub_activity['end_frame'] = end_frame - 1       # 1-based to 0-based
+        sub_activity['end_frame'] = end_frame   # 1-based to 0-based
         sub_activity['sub_activity_id'] = sub_activity_id
         sub_activity['affordances'] = affordances
 
@@ -438,6 +438,52 @@ def read_and_preprocess(path):
     data = np.void
     index = []
     return pos, ori, data, index
+
+def preprocess_joi(joint_idx, list_joi, pos, ori):
+    """
+    Preprocessing joints of interest. 
+    """
+    torso = joint_idx['torso']
+    data = np.zeros((pos.shape[0], 12), ).astype('float32')
+    for t in range(pos.shape[0]):
+        pos_torso = joint_pos(pos[t, :], torso)
+        ori_torso = joint_ori(ori[t, :], torso)
+        data[t, 0:3] = pos_torso
+        data[t, 3:6] = rmat_to_r3(ori_torso)
+        i = 0
+        for j in list_joi: 
+            pos_j = joint_pos(pos[t, :], joint_idx[j])
+            # Convert to body-centered
+            data[t, 6+3*i:9+3*i] = \
+                pos_transform(pos_j, pos_torso, ori_torso)
+            i += 1
+    mean = np.mean(data, axis=0)
+    std = np.std(data, axis=0)
+    data = (data - mean) / std
+
+    pos_joi = np.concatenate([pos[:, 3*joint_idx[j]:3*(joint_idx[j]+1)] 
+                                for j in ['torso']+list_joi], 
+                                axis=1)
+    return data, mean, std, pos_joi
+
+# postprocess (validate)
+def postprocess_joi(joint_idx, data, mean, std):
+    """
+    Postprocessing joints of interest. 
+    """
+    data = data * std + mean
+
+    pos_joi = np.zeros((pos.shape[0], data.shape[1]-3), ).astype('float32')
+    pos_joi[:, 0:3] = data[:, 0:3]
+    
+    for t in range(data.shape[0]):
+        pos_torso = data[t, 0:3]
+        ori_torso = r3_to_rmat(data[t, 3:6])
+        for i in range((data.shape[1]-3)/3-1):
+            pos_joi[t, 3+3*i:6+3*i] = \
+                pos_inv_transform(data[t, 6+3*i:9+3*i], pos_torso, ori_torso)
+
+    return pos_joi
 
 ################################################################################
 # Postprocess Functions
