@@ -159,6 +159,7 @@ class CRBM(BaseNN):
         h1_sample = self.theano_rng.binomial(size=h1_mean.shape, n=1,
                                              p=h1_mean,
                                              dtype=theano.config.floatX)
+        # h1_sample = T.nnet.sigmoid(h1_mean)
         return [pre_sigmoid_h1, h1_mean, h1_sample]
 
     def propdown(self, hid, v_history):
@@ -483,17 +484,17 @@ if __name__ == '__main__':
 
     bd = batchdata.get_value(borrow=True)
 
-    # plot first dimension of each sequence
-    for i in xrange(len(generated_series)):
-        # original
-        start = data_idx[i]
-        plt.subplot(len(generated_series), 1, i)
-        plt.plot(bd[start - crbm.delay:start + 100 - crbm.delay, 1],
-                 label='true', linestyle=':')
-        plt.plot(generated_series[i, :100, 1], label='predicted',
-                 linestyle='-')
+    # # plot first dimension of each sequence
+    # for i in xrange(len(generated_series)):
+    #     # original
+    #     start = data_idx[i]
+    #     plt.subplot(len(generated_series), 1, i)
+    #     plt.plot(bd[start - crbm.delay:start + 100 - crbm.delay, 1],
+    #              label='true', linestyle=':')
+    #     plt.plot(generated_series[i, :100, 1], label='predicted',
+    #              linestyle='-')
 
-    leg = plt.legend()
-    ltext = leg.get_texts()  # all the text.Text instance in the legend
-    plt.setp(ltext, fontsize=9)
+    # leg = plt.legend()
+    # ltext = leg.get_texts()  # all the text.Text instance in the legend
+    # plt.setp(ltext, fontsize=9)
 
