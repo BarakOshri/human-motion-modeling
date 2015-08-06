@@ -15,7 +15,7 @@ pos, pos_conf, ori, ori_conf, subject \
     = read(os.path.join(path_dataset, 'Subject1_annotations'))
 
 # Extract the starting/ending frame number under specified condition
-list_reaching = []
+list = []
 tot_len = 0
 
 for activity_label, activities in subject.iteritems():
@@ -24,23 +24,28 @@ for activity_label, activities in subject.iteritems():
         sub_activities = activity['sub_activities']
         for sub_activity in sub_activities:
             if sub_activity['sub_activity_id'] == 'reaching': # TODO
-                list_reaching.append((sub_activity['start_frame'], 
+            # if True:
+                
+                if sub_activity['end_frame'] - sub_activity['start_frame'] <= 6:
+                    continue
+
+                list.append((sub_activity['start_frame'], 
                                         sub_activity['end_frame']))
                 tot_len += \
                     (sub_activity['end_frame'] - sub_activity['start_frame'])
 
 # Extract the Sequences
-pos = np.concatenate([pos[start:end, :] for (start, end) in list_reaching],
+pos = np.concatenate([pos[start:end, :] for (start, end) in list],
                         axis=0)
-ori = np.concatenate([ori[start:end, :] for (start, end) in list_reaching],
+ori = np.concatenate([ori[start:end, :] for (start, end) in list],
                         axis=0)
-list_reaching_new = []
+list_new = []
 cnt = 0
-for (start, end) in list_reaching:
-    list_reaching_new.append([cnt, cnt+end-start])
+for (start, end) in list:
+    list_new.append([cnt, cnt+end-start])
     cnt += (end-start)
 
-index_reaching = np.array(list_reaching_new)
+index = np.array(list_new)
 
 # From Y-up to Z-up Coordinate System
 pos, ori = change_space(pos, ori, R=np.array([[1, 0, 0], [0, 0, 1], [0, 1, 0]]))
@@ -48,33 +53,30 @@ pos, ori = change_space(pos, ori, R=np.array([[1, 0, 0], [0, 0, 1], [0, 1, 0]]))
 # Preprocess
 print 'Preprocessing the joint of interests...'
 
-data_joi, mean_joi, std_joi, pos_joi = \
-    preprocess_joi(joint_idx, ['left_hand', 'right_hand'], pos, ori)
-pos_joi_recon = postprocess_joi(joint_idx, data_joi, mean_joi, std_joi)
+torso = joint_idx['torso']
+oris_torso = ori[:, 9*torso:9*(torso+1)]
+print oris_torso.shape
+
+data_joi, pos_joi = \
+    preprocess_joi(joint_idx, ['left_hand', 'right_hand'], pos, oris_torso)
+pos_joi_recon = postprocess_joi(joint_idx, data_joi)
 
 print 'done.'
 
 print 'Preprocessing the relative positions...'
 
-data_relpos, mean_relpos, std_relpos = \
-    preprocess_relpos(joint_idx, connection, pos, ori)
-pos_recon = \
-    postprocess_relpos(joint_idx, connection, 
-                        data_relpos, mean_relpos, std_relpos)
+data_relpos = preprocess_relpos(joint_idx, connection, pos, oris_torso)
+pos_recon = postprocess_relpos(joint_idx, connection, data_relpos)
 
 print 'done.'
 
 # Save and print
-np.save(os.path.join(path_dataset, 'index'), index_reaching)
+np.save(os.path.join(path_dataset, 'index'), index)
 np.save(os.path.join(path_dataset, 'pos'), pos)
 np.save(os.path.join(path_dataset, 'ori'), ori)
 np.save(os.path.join(path_dataset, 'data_joi'), data_joi)
-np.save(os.path.join(path_dataset, 'mean_joi'), mean_joi)
-np.save(os.path.join(path_dataset, 'std_joi'), std_joi)
 np.save(os.path.join(path_dataset, 'pos_joi'), pos_joi)
 np.save(os.path.join(path_dataset, 'data_relpos'), data_relpos)
-np.save(os.path.join(path_dataset, 'mean_relpos'), mean_relpos)
-np.save(os.path.join(path_dataset, 'std_relpos'), std_relpos)
 
 toc = clock()
 print 'Done in {} secs.'.format(toc-tic)
