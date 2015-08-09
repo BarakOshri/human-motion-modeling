@@ -69,7 +69,7 @@ def get_offset_arr(skel, pos_arr, ori_arr):
     Return the mean offset arrays computed from position and orientation arrays.
     """
     offset_arr = np.concatenate(
-                [[get_offset(skel, pos_arr[t, :], ori_arr[t, :])]\
+                [[get_offset_t(skel, pos_arr[t, :], ori_arr[t, :])]\
                 for t in range(pos_arr.shape[0])], axis=0)
     return offset_arr
 
