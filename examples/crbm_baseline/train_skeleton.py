@@ -36,8 +36,8 @@ en_test = True
 logging.info('Loading data...')
 tic = clock()
 
-pos = np.load(os.path.join(path_dataset, 'pos.npy'))
-ori = np.load(os.path.join(path_dataset, 'ori.npy'))
+pos_arr = np.load(os.path.join(path_dataset, 'pos_arr.npy'))
+ori_arr = np.load(os.path.join(path_dataset, 'ori_arr.npy'))
 data_abs = np.load(os.path.join(path_dataset, 'data_relpos.npy'))
 index_abs = np.load(os.path.join(path_dataset, 'index.npy'))
 
@@ -62,6 +62,7 @@ np.save('data_index', data_index)
 batchdata = theano.shared(np.asarray(data, dtype=theano.config.floatX))
 
 # print index
+print data_index.shape
 seqlen = [data_index[i, 1] - data_index[i, 0]\
             for i in range(data_index.shape[0])]
 

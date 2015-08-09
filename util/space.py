@@ -99,3 +99,30 @@ def pos_inv_transform(x_o, x_space, R_space):
     """ 
     return x_space + np.dot(x_o, R_space)
 
+def xyz2sph(v):
+    """
+    Get the spherical coordinates from Cartisian coordinates. 
+    """
+    r = np.linalg.norm(v, ord=2)
+    theta = np.arccos(v[2]/r)
+    phi = np.arctan2(v[1], v[0])
+    return [r, theta, phi]
+
+def sph2xyz(r, theta, phi):
+    """
+    Get the Cartisian coordinates from spherical coordinates. 
+    """
+    x = r * np.sin(theta) * np.cos(phi)
+    y = r * np.sin(theta) * np.sin(phi)
+    z = r * np.cos(theta)
+    return [x, y, z]
+    
+def get_child_axises(vc_w, vp_w, ux_p, uy_p, uz_p):
+    t = vc_w - vp_w
+    uz_c = -t / np.linag.norm(t)
+    ux_p_project = ux_p - np.dot(ux_p, uz_c)
+    ux_c = ux_p_project / np.linag.norm(ux_p_project)
+    uy_c = np.cross(uz_c, ux_c)
+    return [ux_c, uy_c, uz_c]
+
+

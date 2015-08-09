@@ -1,145 +1,136 @@
 import os
 import numpy as np
+from collections import OrderedDict 
 
 ################################################################################
 # Skeleton Parameters
 ################################################################################
-# Index of Joints
-joint_idx = {
-            'head': 0, 
-            'neck': 1, 
-            'torso': 2, 
-            'left_shoulder': 3, 
-            'left_elbow': 4, 
-            'right_shoulder': 5, 
-            'right_elbow': 6, 
-            'left_hip': 7, 
-            'left_knee': 8, 
-            'right_hip': 9, 
-            'right_knee': 10, 
-            'left_hand': 11, 
-            'right_hand': 12, 
-            'left_foot': 13, 
-            'right_foot': 14,
-            }
+skel = {}
 
-# Original code of computing index of joints:
-# # 1-based index
-# joint_idx_1based = {}
-# joint_idx_1based['head']            = 1
-# joint_idx_1based['neck']            = 2
-# joint_idx_1based['torso']           = 3
-# joint_idx_1based['left_shoulder']   = 4
-# joint_idx_1based['left_elbow']      = 5
-# joint_idx_1based['right_shoulder']  = 6
-# joint_idx_1based['right_elbow']     = 7
-# joint_idx_1based['left_hip']        = 8
-# joint_idx_1based['left_knee']       = 9
-# joint_idx_1based['right_hip']       = 10
-# joint_idx_1based['right_knee']      = 11
-# joint_idx_1based['left_hand']       = 12
-# joint_idx_1based['right_hand']      = 13
-# joint_idx_1based['left_foot']       = 14
-# joint_idx_1based['right_foot']      = 15
-# 
-# # 0-based index
-# joint_idx = {}
-# for joint_name in joint_idx_1based.keys():
-#     joint_idx[joint_name] = joint_idx_1based[joint_name] - 1
+# Names of Joints
+joints = [
+            'torso',
+            'neck',
+            'left_shoulder',
+            'right_shoulder',
+            'left_hip',
+            'right_hip',
 
+            'head',
+            'left_elbow',
+            'right_elbow',
+            'left_knee',
+            'right_knee',
 
-# Connection of the Skeleton
-connection = [
-            # breath 1 
-            (2, 1), 
-            (2, 3), 
-            (2, 5), 
-            (2, 7), 
-            (2, 9), 
-            
-            # breath 2
-            (1, 0), 
-            (3, 4), 
-            (5, 6), 
-            (7, 8), 
-            (9, 10), 
-
-            # breath 3
-            (4, 11), 
-            (6, 12), 
-            (8, 13), 
-            (10, 14)
+            'left_hand',
+            'right_hand',
+            'left_foot',
+            'right_foot'
             ]
+skel['joints'] = joints
 
-# Original code of computing connection of the skeleton:
-# joint_connect = [\
-#   ('torso', 'neck'), ('torso', 'left_shoulder'), ('torso', 'right_shoulder'), 
-#     ('torso', 'left_hip'), ('torso', 'right_hip'), 
-# 
-#     ('neck', 'head'),
-#     ('left_shoulder', 'left_elbow'),
-#     ('right_shoulder', 'right_elbow'),
-#     ('left_hip', 'left_knee'), 
-#     ('right_hip', 'right_knee'), 
-# 
-#     ('left_elbow', 'left_hand'),
-#     ('right_elbow', 'right_hand'),
-#     ('left_knee', 'left_foot'),
-#     ('right_knee', 'right_foot')]
-# 
-# root = joint_idx['torso']
-# 
-# # 0-based index
-# connect = [(joint_idx[parent], joint_idx[child])
-#             for parent, child in joint_connect]
+tree = []
+# torso
+tree.append({
+            'parent': None,
+            'children': [joints.index('neck'),
+                        joints.index('left_shoulder'),
+                        joints.index('right_shoulder'),
+                        joints.index('left_hip'),
+                        joints.index('right_hip')]
+            })
+# neck
+tree.append({
+            'parent': joints.index('torso'),
+            'children': [joints.index('head')]
+            })
+# left_shoulder
+tree.append({
+            'parent': joints.index('torso'),
+            'children': [joints.index('left_elbow')]
+            })
+# right_shoulder
+tree.append({
+            'parent': joints.index('torso'),
+            'children': [joints.index('right_elbow')]
+            })
+# left_hip
+tree.append({
+            'parent': joints.index('torso'),
+            'children': [joints.index('left_knee')]
+            })
+# right_hip
+tree.append({
+            'parent': joints.index('torso'),
+            'children': [joints.index('right_knee')]
+            })
+# head
+tree.append({
+            'parent': joints.index('neck'),
+            'children': []
+            })
+# left_elbow
+tree.append({
+            'parent': joints.index('left_shoulder'),
+            'children': [joints.index('left_hand')]
+            })
+# right_elbow
+tree.append({
+            'parent': joints.index('right_shoulder'),
+            'children': [joints.index('right_hand')]
+            })
+# left_knee
+tree.append({
+            'parent': joints.index('left_hip'),
+            'children': [joints.index('left_foot')]
+            })
+# right_knee
+tree.append({
+            'parent': joints.index('right_hip'),
+            'children': [joints.index('right_foot')],
+            })
+# left_hand
+tree.append({
+            'parent': joints.index('left_elbow'),
+            'children': []
+            })
+# right_hand
+tree.append({
+            'parent': joints.index('right_elbow'),
+            'children': []
+            })
+# left_foot
+tree.append({
+            'parent': joints.index('left_knee'),
+            'children': []
+            })
+# right_foot
+tree.append({
+            'parent': joints.index('right_knee'),
+            'children': []
+            })
 
+skel['tree'] = tree
+
+connection = [(tree[c]['parent'], c) for c in range(1, len(joints))]
+skel['connection'] = connection
 
 ################################################################################
 # IO & Process Parameters
 ################################################################################
-# Add any necessary parameters for loading and processing the dataset. 
-idx_ori = [1, 2, 3, 4, 5, 6, 7, 8, 9, 15, 16, 17, 18, 19, 20, 21, 22, 23, 29,
-            30, 31, 32, 33, 34, 35, 36, 37, 43, 44, 45, 46, 47, 48, 49, 50, 51,
-            57, 58, 59, 60, 61, 62, 63, 64, 65, 71, 72, 73, 74, 75, 76, 77, 78,
-            79, 85, 86, 87, 88, 89, 90, 91, 92, 93, 99, 100, 101, 102, 103, 104,
-            105, 106, 107, 113, 114, 115, 116, 117, 118, 119, 120, 121, 127, 
-            128, 129, 130, 131, 132, 133, 134, 135, 141, 142, 143, 144, 145, 
+# Indices for reading data from file
+ind_ori = [29, 30, 31, 32, 33, 34, 35, 36, 37, 15, 16, 17, 18, 19, 20, 21, 22, 
+            23, 43, 44, 45, 46, 47, 48, 49, 50, 51, 71, 72, 73, 74, 75, 76, 77, 
+            78, 79, 99, 100, 101, 102, 103, 104, 105, 106, 107, 127, 128, 129, 
+            130, 131, 132, 133, 134, 135, 1, 2, 3, 4, 5, 6, 7, 8, 9, 57, 58, 59,
+            60, 61, 62, 63, 64, 65, 85, 86, 87, 88, 89, 90, 91, 92, 93, 113, 
+            114, 115, 116, 117, 118, 119, 120, 121, 141, 142, 143, 144, 145, 
             146, 147, 148, 149]
-idx_pos = [11, 12, 13, 25, 26, 27, 39, 40, 41, 53, 54, 55, 67, 68, 69, 81, 82, 
-            83, 95, 96, 97, 109, 110, 111, 123, 124, 125, 137, 138, 139, 151, 
-            152, 153, 155, 156, 157, 159, 160, 161, 163, 164, 165, 167, 168, 
-            169] 
-idx_oriconf = [10, 24, 38, 52, 66, 80, 94, 108, 122, 136, 150]
-idx_posconf = [14, 28, 42, 56, 70, 84, 98, 112, 126, 140, 154, 158, 162, 166,
-                170]
-
-# Original code for computing parameters for loading data:
-# idx_ori = []#[None] * (9*11)
-# idx_pos = []#[None] * (3*15)
-# idx_oriconf =  []#[None] * (11)
-# idx_posconf =  []#[None] * (15)
-# 
-# for i in range(11):
-#     start = 1 + i*(9+1+3+1)
-#     for j in range(9):
-#         idx_ori.append(start + j)
-#     idx_oriconf.append(start + 9)
-#     for j in range(3):
-#         idx_pos.append(start + 9 + 1 + j)
-#     idx_posconf.append(start + 9 + 1 + 3)
-# 
-# for i in range(11, 15):
-#     start = 1 + 11*(9+1+3+1) + (i-11)*(3+1)
-#     for j in range(3):
-#         idx_pos.append(start + j)
-#     idx_posconf.append(start + 3)
-# 
-# print idx_ori
-# print idx_pos
-# print idx_oriconf
-# print idx_posconf
-
-
+ind_pos = [39, 40, 41, 25, 26, 27, 53, 54, 55, 81, 82, 83, 109, 110, 111, 137, 
+            138, 139, 11, 12, 13, 67, 68, 69, 95, 96, 97, 123, 124, 125, 151, 
+            152, 153, 155, 156, 157, 159, 160, 161, 163, 164, 165, 167, 168,169]
+ind_oriconf = [38, 24, 52, 80, 108, 136, 10, 66, 94, 122, 150]
+ind_posconf = [42, 28, 56, 84, 112, 140, 14, 70, 98, 126, 154, 158, 162,166,170]
 
 ################################################################################
 # Preprocess Functions (Read)
@@ -148,9 +139,9 @@ def read(path):
     """
     Read a subject
     """
-    pos, posconf, ori, oriconf, subject = merge(_read_subject(path))
-    return pos, posconf, ori, oriconf, subject
-
+    pos_arr, posconf_arr, ori_arr, oriconf_arr, subject \
+        = merge(_read_subject(path))
+    return pos_arr, posconf_arr, ori_arr, oriconf_arr, subject
 
 def _read_activity_labels(filename):
     """
@@ -162,17 +153,16 @@ def _read_activity_labels(filename):
         activity_labels.append(words[0])
     return activity_labels
 
-
 def _read_skeleton_data(filename):
     """
     Read a sequence of skeleton movements. 
     """
-    len_seq = sum(1 for line in open(filename))-1
+    len_arr = sum(1 for line in open(filename))-1
 
-    ori = np.zeros((len_seq, 9*11), dtype = np.float32)
-    pos = np.zeros((len_seq, 3*15), dtype = np.float32)
-    oriconf = np.zeros((len_seq, 11), dtype = np.float32)
-    posconf = np.zeros((len_seq, 15), dtype = np.float32)
+    ori_arr = np.zeros((len_arr, 9*11), dtype = np.float32)
+    pos_arr = np.zeros((len_arr, 3*15), dtype = np.float32)
+    oriconf_arr = np.zeros((len_arr, 11), dtype = np.float32)
+    posconf_arr = np.zeros((len_arr, 15), dtype = np.float32)
 
     row = 0
     for line in open(filename):
@@ -184,15 +174,14 @@ def _read_skeleton_data(filename):
         vals = [float(words[i]) for i in range(1 + 9*11+3*15+11+15)]
 
         id = float(words[0])
-        ori[row, :] = np.array([vals[idx] for idx in idx_ori])
-        pos[row, :] = np.array([vals[idx] for idx in idx_pos])
-        oriconf[row, :] = np.array([vals[idx] for idx in idx_oriconf])
-        posconf[row, :] = np.array([vals[idx] for idx in idx_posconf])
+        ori_arr[row, :] = np.array([vals[ind] for ind in ind_ori])
+        pos_arr[row, :] = np.array([vals[ind] for ind in ind_pos])
+        oriconf_arr[row, :] = np.array([vals[ind] for ind in ind_oriconf])
+        posconf_arr[row, :] = np.array([vals[ind] for ind in ind_posconf])
 
         row += 1
 
-    return ori, oriconf, pos, posconf
-
+    return ori_arr, oriconf_arr, pos_arr, posconf_arr
 
 def _read_activities(path_activity):
     """
@@ -219,17 +208,17 @@ def _read_activities(path_activity):
         activity['objects'] = objects
 
         path_subact = os.path.join(path_activity, words[0] + '.txt')
-        ori, oriconf, pos, posconf = _read_skeleton_data(path_subact)
+        ori_arr, oriconf_arr, pos_arr, posconf_arr \
+            = _read_skeleton_data(path_subact)
         
-        activity['ori'] = ori
-        activity['oriconf'] = oriconf
-        activity['pos'] = pos
-        activity['posconf'] = posconf
+        activity['ori_arr'] = ori_arr
+        activity['oriconf_arr'] = oriconf_arr
+        activity['pos_arr'] = pos_arr
+        activity['posconf_arr'] = posconf_arr
 
         activities[id] = activity
 
     return activities
-            
 
 def _read_labeling(path_activity):
     """
@@ -265,7 +254,6 @@ def _read_labeling(path_activity):
 
     return labeling
 
-
 def _read_subject(path_subject):
     """
     Read all activity sequences of skeleton movements in a Subject folder.
@@ -286,10 +274,9 @@ def _read_subject(path_subject):
 
     return subject
 
-
 def merge(subject):
     """
-    Merge the pos's and ori's into the same numpy array. 
+    Merge the pos_arr's and ori_arr's into the same numpy array. 
     Modify the starting and endding frame numbers accordingly. 
     """
     subject_new = {}
@@ -303,7 +290,7 @@ def merge(subject):
             activity = activities[id]
 
             activity_new = {}
-            act_len = activity['ori'].shape[0]
+            act_len = activity['ori_arr'].shape[0]
             activity_new['activity_id'] = activity['activity_id']
             activity_new['objects'] = activity['objects']
             activity_new['start_frame'] = cnt
@@ -321,37 +308,35 @@ def merge(subject):
             
         subject_new[activity_label] = activities_new
 
-
-    pos = np.concatenate(\
-            [activity['pos']
+    pos_arr = np.concatenate(\
+            [activity['pos_arr']
                 for activity_label, directory in subject.iteritems()
                 for id, activity in directory['activities'].iteritems()
             ],
             axis=0)
 
-    ori = np.concatenate(\
-            [activity['ori']
+    ori_arr = np.concatenate(\
+            [activity['ori_arr']
                 for activity_label, directory in subject.iteritems()
                 for id, activity in directory['activities'].iteritems()
             ],
             axis=0)
 
-    posconf = np.concatenate(\
-            [activity['posconf']
+    posconf_arr = np.concatenate(\
+            [activity['posconf_arr']
                 for activity_label, directory in subject.iteritems()
                 for id, activity in directory['activities'].iteritems()
             ],
             axis=0)
 
-    oriconf = np.concatenate(\
-            [activity['oriconf']
+    oriconf_arr = np.concatenate(\
+            [activity['oriconf_arr']
                 for activity_label, directory in subject.iteritems()
                 for id, activity in directory['activities'].iteritems()
             ],
             axis=0)
 
-    return pos, posconf, ori, oriconf, subject_new
-
+    return pos_arr, posconf_arr, ori_arr, oriconf_arr, subject_new
 
 def print_subject(subject):
     """
@@ -385,17 +370,13 @@ def print_subject(subject):
 ################################################################################
 # Preprocess Functions (Transform)
 ################################################################################
-def preprocess(joint_idx, connection, pos_t, ori_t):
+def preprocess(pos_t, ori_t):
     """
     Preprocess the data representation from raw position and orientation at each
     time step.
 
     Parameters
     ----------
-        joint_idx: dict
-            Index of joints. 
-        connection: list of tuples
-            Connection of joints in the skeleton. 
         pos_t: numpy array
             Position of joints at a time step.
         ori_t: numpy array
@@ -423,10 +404,10 @@ def read_and_preprocess(path):
 
     Returns
     -------
-        pos: numpy array
-            Position of joints.
-        ori: numpy array
-            Orientation of joints.
+        pos_arr: numpy array
+            Positions of joints.
+        ori_arr: numpy array
+            Orientations of joints.
         data: numpy array
             Preprocessed data representation of skeleton trajectories
         index: list of tuple
@@ -434,71 +415,21 @@ def read_and_preprocess(path):
     """
     # TODO: Start your code here:
     raise Exception('Not implemented yet.')
-    pos = np.void
+    pos_arr = np.void
     data = np.void
     index = []
-    return pos, ori, data, index
-
-def preprocess_joi(joint_idx, list_joi, pos, ori):
-    """
-    Preprocessing joints of interest. 
-    """
-    torso = joint_idx['torso']
-    data = np.zeros((pos.shape[0], 12), ).astype('float32')
-    for t in range(pos.shape[0]):
-        pos_torso = joint_pos(pos[t, :], torso)
-        ori_torso = joint_ori(ori[t, :], torso)
-        data[t, 0:3] = pos_torso
-        data[t, 3:6] = rmat_to_r3(ori_torso)
-        i = 0
-        for j in list_joi: 
-            pos_j = joint_pos(pos[t, :], joint_idx[j])
-            # Convert to body-centered
-            data[t, 6+3*i:9+3*i] = \
-                pos_transform(pos_j, pos_torso, ori_torso)
-            i += 1
-    mean = np.mean(data, axis=0)
-    std = np.std(data, axis=0)
-    data = (data - mean) / std
-
-    pos_joi = np.concatenate([pos[:, 3*joint_idx[j]:3*(joint_idx[j]+1)] 
-                                for j in ['torso']+list_joi], 
-                                axis=1)
-    return data, mean, std, pos_joi
-
-# postprocess (validate)
-def postprocess_joi(joint_idx, data, mean, std):
-    """
-    Postprocessing joints of interest. 
-    """
-    data = data * std + mean
-
-    pos_joi = np.zeros((pos.shape[0], data.shape[1]-3), ).astype('float32')
-    pos_joi[:, 0:3] = data[:, 0:3]
-    
-    for t in range(data.shape[0]):
-        pos_torso = data[t, 0:3]
-        ori_torso = r3_to_rmat(data[t, 3:6])
-        for i in range((data.shape[1]-3)/3-1):
-            pos_joi[t, 3+3*i:6+3*i] = \
-                pos_inv_transform(data[t, 6+3*i:9+3*i], pos_torso, ori_torso)
-
-    return pos_joi
+    return pos_arr, ori_arr, data, index
 
 ################################################################################
 # Postprocess Functions
 ################################################################################
-def postprocess(joint_idx, connection, datum):
+def postprocess(datum):
     """
     Postprocess the data representation into raw position and orientation 
     at each time step.
 
     Parameters
     ----------
-        joint_idx: dict
-            Index of joints. 
-        connection: list of tuples
-            Connection of joints in the skeleton. 
         datum: numpy array
             Preprocessed data representation of the skeleton.
 
@@ -514,3 +445,27 @@ def postprocess(joint_idx, connection, datum):
     pos_t = np.void
     ori_t = np.void
     return pos_t, ori_t
+
+################################################################################
+# 
+################################################################################
+if __name__ == '__main__':
+    # test and print skeleton
+    print 'joints: {}'.format(skel['joints'])
+
+    joints = skel['joints']
+    tree = skel['tree']
+    for j in range(len(tree)):
+        print '# {}'.format(joints[j])
+        if tree[j]['parent'] == None:
+            print '\t<parent>: {}'.format('None')
+        else:
+            print '\t<parent>: {}'.format(joints[tree[j]['parent']])
+        lst = []
+        for i in tree[j]['children']:
+            lst.append(joints[i])
+        print '\t<children>: {}'.format(lst)
+
+    print 'connection: {}'.format(skel['connection'])
+    print 'Caution: connection list needs the children apprear in ascending order.'
+

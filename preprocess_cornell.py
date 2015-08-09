@@ -11,7 +11,7 @@ tic = clock()
 path_dataset = 'data/cornell/'
 
 # Read Data
-pos, pos_conf, ori, ori_conf, subject \
+pos_arr, posconf_arr, ori_arr, oriconf_arr, subject \
     = read(os.path.join(path_dataset, 'Subject1_annotations'))
 
 # Extract the starting/ending frame number under specified condition
@@ -35,9 +35,9 @@ for activity_label, activities in subject.iteritems():
                     (sub_activity['end_frame'] - sub_activity['start_frame'])
 
 # Extract the Sequences
-pos = np.concatenate([pos[start:end, :] for (start, end) in list],
+pos_arr = np.concatenate([pos_arr[start:end, :] for (start, end) in list],
                         axis=0)
-ori = np.concatenate([ori[start:end, :] for (start, end) in list],
+ori_arr = np.concatenate([ori_arr[start:end, :] for (start, end) in list],
                         axis=0)
 list_new = []
 cnt = 0
@@ -48,46 +48,39 @@ for (start, end) in list:
 index = np.array(list_new)
 
 # From Y-up to Z-up Coordinate System
-pos, ori = change_space(pos, ori, R=np.array([[1, 0, 0], [0, 0, 1], [0, 1, 0]]))
+Ry2z=np.array([[1, 0, 0], [0, 0, 1], [0, 1, 0]])
+pos_arr, ori_arr = change_space(pos_arr, ori_arr, R=Ry2z)
 
 # Preprocess
 print 'Preprocessing the joint of interests...'
 
-torso = joint_idx['torso']
-oris_torso = ori[:, 9*torso:9*(torso+1)]
-print oris_torso.shape
+ori_torso_arr = ori_arr[:, ori_ind(0)]
 
-data_joi, pos_joi = \
-    preprocess_joi(joint_idx, ['left_hand', 'right_hand'], pos, oris_torso)
-pos_joi_recon = postprocess_joi(joint_idx, data_joi)
+list_joi = [joints.index('left_hand'), joints.index('right_hand')]
+data_joi, pos_joi_arr = preprocess_joi(list_joi, pos_arr, ori_torso_arr)
+pos_joi_recon = postprocess_joi(data_joi)
 
 print 'done.'
 
 print 'Preprocessing the relative positions...'
 
-data_relpos = preprocess_relpos(joint_idx, connection, pos, oris_torso)
-pos_recon = postprocess_relpos(joint_idx, connection, data_relpos)
+data_relpos = preprocess_relpos(skel, pos_arr, ori_torso_arr)
+pos_recon_arr = postprocess_relpos(skel, data_relpos)
 
 print 'done.'
 
 # Save and print
 np.save(os.path.join(path_dataset, 'index'), index)
-np.save(os.path.join(path_dataset, 'pos'), pos)
-np.save(os.path.join(path_dataset, 'ori'), ori)
+np.save(os.path.join(path_dataset, 'pos_arr'), pos_arr)
+np.save(os.path.join(path_dataset, 'ori_arr'), ori_arr)
 np.save(os.path.join(path_dataset, 'data_joi'), data_joi)
-np.save(os.path.join(path_dataset, 'pos_joi'), pos_joi)
+np.save(os.path.join(path_dataset, 'pos_joi_arr'), pos_joi_arr)
 np.save(os.path.join(path_dataset, 'data_relpos'), data_relpos)
 
 toc = clock()
 print 'Done in {} secs.'.format(toc-tic)
 
 print 'Reoncstruction error of joints of interest: {}'\
-        .format(np.mean((pos_joi - pos_joi_recon)**2))
+        .format(np.mean((pos_joi_arr - pos_joi_recon)**2))
 print 'Reoncstruction error of relative position: {}'\
-        .format(np.mean((pos - pos_recon)**2))
-
-# for t in range(100):
-#     pp = [np.linalg.norm(data_relpos[t, 3*i:3*(i+1)])\
-#             for i in range(data_relpos.shape[1]/3)]
-#     print pp
-
+        .format(np.mean((pos_arr - pos_recon_arr)**2))

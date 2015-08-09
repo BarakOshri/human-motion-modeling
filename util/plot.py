@@ -15,8 +15,8 @@ from matplotlib import animation
 
 from IPython.display import HTML
 
-def plot_skeleton(connection, pos_t, posconf_t=None,
-                    pos_joi_t=None,
+def plot_skeleton(skel, 
+                    pos_t, posconf_t=None, pos_joi_t=None,
                     dotsize=50, c=['g', 'b', 'r', 'y'], alpha=0.8,
                     ax=None, view=None,
                     figsize=(10, 10), 
@@ -29,8 +29,8 @@ def plot_skeleton(connection, pos_t, posconf_t=None,
 
     Parameters
     ----------
-    connection: list of tuple
-        Connect relationship list of the lines between joints. 
+    skel: 
+        Skeleton structure of the MoCap data.
     pos_t: float array
         World position of joints. 
     posconf_t: float array
@@ -64,6 +64,8 @@ def plot_skeleton(connection, pos_t, posconf_t=None,
 
     if view != None:
         ax.view_init(view[0], view[1])
+
+    connection = skel['connection']
 
     # plot skeleton joints and unconfident joints
     posX = [pos_t[i*3+0] for i in range(len(pos_t)/3)]
@@ -101,8 +103,9 @@ def plot_skeleton(connection, pos_t, posconf_t=None,
     return
 
 
-def animate_skeleton(connection, pos, posconf=None, 
-                        pos_joi=None,
+def animate_skeleton(skel, 
+                        pos_arr, posconf_arr=None, 
+                        pos_joi_arr=None,
                         dotsize=50, linesize=30, c=['g', 'b', 'r', 'y'], alpha=0.8,
                         fig=None, ax=None, view=None,
                         figsize=(10, 10), 
@@ -115,13 +118,13 @@ def animate_skeleton(connection, pos, posconf=None,
 
     Parameters
     ----------
-    connection: list of tuple
-        Connect relationship list of the lines between joints. 
-    pos: float (len_seq, len(idx_pos))
+    skel: 
+        Skeleton structure of the MoCap data.
+    pos_arr: float (len_seq, len(idx_pos))
         World position of joints. 
-    posconf: float (len_seq, num_pos)
+    posconf_arr: float (len_seq, num_pos)
         Position-confidence array of joints.
-    pos_joi: float array
+    pos_joi_arr: float array
         World position of joints of interest.
 
     dotsize: int
@@ -162,7 +165,9 @@ def animate_skeleton(connection, pos, posconf=None,
     if view != None:
         ax.view_init(view[0], view[1])
 
-    len_seq = pos.shape[0]
+    connection = skel['connection']
+
+    len_seq = pos_arr.shape[0]
 
     plot_pos =\
         ax.scatter([], [], [], c=c[0], s=dotsize, alpha=alpha, animated=True)
@@ -191,7 +196,7 @@ def animate_skeleton(connection, pos, posconf=None,
 
     def update(t):
         # skeleton joints
-        pos_t = pos[t, :]
+        pos_t = pos_arr[t, :]
         posX = [pos_t[i*3+0] for i in range(len(pos_t)/3)]
         posY = [pos_t[i*3+1] for i in range(len(pos_t)/3)]
         posZ = [pos_t[i*3+2] for i in range(len(pos_t)/3)]
@@ -200,10 +205,10 @@ def animate_skeleton(connection, pos, posconf=None,
         uncfposY = []
         uncfposZ = []
         # unconfident joints
-        if posconf == None:
+        if posconf_arr == None:
             posconf_t = None
         else:
-            posconf_t = posconf[t, :]
+            posconf_t = posconf_arr[t, :]
             uncfposX = [pos_t[i*3+0] for i in find(posconf_t == 0)]
             uncfposY = [pos_t[i*3+1] for i in find(posconf_t == 0)]
             uncfposZ = [pos_t[i*3+2] for i in find(posconf_t == 0)]
@@ -212,10 +217,10 @@ def animate_skeleton(connection, pos, posconf=None,
         pos_joiY = []
         pos_joiZ = []
         # joints of interest
-        if pos_joi == None:
+        if pos_joi_arr == None:
             pos_joi_t = None
         else:
-            pos_joi_t = pos_joi[t, :]
+            pos_joi_t = pos_joi_arr[t, :]
             pos_joiX = [pos_joi_t[i*3+0] for i in range(len(pos_joi_t)/3)]
             pos_joiY = [pos_joi_t[i*3+1] for i in range(len(pos_joi_t)/3)]
             pos_joiZ = [pos_joi_t[i*3+2] for i in range(len(pos_joi_t)/3)]

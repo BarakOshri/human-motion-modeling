@@ -1,184 +1,274 @@
 import numpy as np
 from space import *
 
-def joint_pos(pos_t, idx):
-    """
-    Return the position of the idx'th joint. 
-    """
-    return np.array([pos_t[idx*3+0], pos_t[idx*3+1], pos_t[idx*3+2]])
+def pos_ind(i):
+    return np.array(range(i*3,(i+1)*3))
 
-def joint_ori(ori_t, idx):
-    """
-    Return the orientation matrix of the idx'th joint. 
-    """
-    return np.array([[ori_t[idx*3+0], ori_t[idx*3+1], ori_t[idx*3+2]], 
-                        [ori_t[idx*3+3], ori_t[idx*3+4], ori_t[idx*3+5]], 
-                        [ori_t[idx*3+6], ori_t[idx*3+7], ori_t[idx*3+8]]])
+def ori_ind(i):
+    return np.array(range(i*9,(i+1)*9))
 
-def change_space(pos, ori, t = np.zeros(3), R = np.eye(3)):
+def joint_pos(pos_t, ind):
+    """
+    Return the position of the ind'th joint. 
+    """
+    return np.array([pos_t[ind*3+0], pos_t[ind*3+1], pos_t[ind*3+2]])
+
+def joint_ori(ori_t, ind):
+    """
+    Return the orientation matrix of the ind'th joint. 
+    """
+    return ori_t[ind*9:(ind+1)*9].reshape(3, 3)
+
+def change_space(pos_arr, ori_arr, trans = np.zeros(3), R = np.eye(3)):
     """
     Chang position and orientation arrays into a new coordinate system.
 
     Parameters
     ----------
-    pos: numpy array
-    Position array in the current space.
-    ori:
-    Orientation array in the current space.
+    pos_arr: numpy array
+        Position array in the current space.
+    ori_arr:
+        Orientation array in the current space.
     t:
-    Translation vector of the origin of the new space.
+        Translation vector of the origin of the new space.
     R:
-    Rotation matrix of the new space.
+        Rotation matrix of the new space.
     """
-    pos_new = np.zeros(pos.shape)
-    ori_new = np.zeros(ori.shape)
+    pos_arr_new = np.empty(pos_arr.shape)
+    ori_arr_new = np.empty(ori_arr.shape)
 
-    for i in range(pos.shape[0]):
-        for j in range(pos.shape[1]/3):
-            pos_new[i, j*3:(j+1)*3] = np.dot(pos[i, j*3:(j+1)*3] - t, R.T)
+    for t in range(pos_arr.shape[0]):
+        for j in range(pos_arr.shape[1]/3):
+            v = pos_arr[t, pos_ind(j)]
+            pos_arr_new[t, pos_ind(j)] = np.dot(v - [trans], R.T)
 
-        for j in range(ori.shape[1]/9):
-            ori_new[i, j*9:(j+1)*9] \
-                = np.dot(np.dot(R, ori[i, j*9:(j+1)*9].reshape(3, 3)), R.T).reshape(1, 9)
+        for j in range(ori_arr.shape[1]/9):
+            o = ori_arr[t, ori_ind(j)].reshape(3, 3)
+            ori_arr_new[t, ori_ind(j)] = np.dot(np.dot(R, o), R.T).reshape(1, 9)
 
-    return pos_new, ori_new
+    return pos_arr_new, ori_arr_new
 
-def get_offset_t(pos_t, ori_t, connection):
+def get_offset(skel, pos_t, ori_t):
     """
     Return the offset arrays at the step t.
     """
-    offset_t = np.zeros(pos_t.shape[0]-3)
+    connection = skel['connection']
+
+    offset_t = np.empty(pos_t.shape[0]-3)
     i = 0; # store the offset according to the order of connection list
     for (parent, child) in connection:
         t = joint_pos(pos_t, parent)
         R = joint_ori(ori_t, parent)
-        offset_t[None, 3*i:3*(i+1)] \
+        offset_t[None, i*3:(i+1)*3] \
             = np.dot(joint_pos(pos_t, child) - t, R.T)
         i += 1
     return offset_t
 
-def get_mean_offset(pos, ori, connection):
+def get_offset_arr(skel, pos_arr, ori_arr):
     """
     Return the mean offset arrays computed from position and orientation arrays.
     """
-    offset = np.zeros((pos.shape[0], pos.shape[1]-3))
-    for t in range(pos.shape[0]):
-        offset[t, :] = get_offset_t(pos[t, :], ori[t, :], connection)
-    return np.mean(offset, axis=0)
+    offset_arr = np.concatenate(
+                [[get_offset(skel, pos_arr[t, :], ori_arr[t, :])]\
+                for t in range(pos_arr.shape[0])], axis=0)
+    return offset_arr
 
-def ori2pos(joint_idx, connection, pos_root, ori, offset):
+def assemble(skel, pos_torso_t, ori_t, offset):
+    """
+    Assemble torso positions and offsets into the world positions. 
+    """
+    connection = skel['connection']
+    joints = skel['joints']
+
+    pos_t = np.empty(len(joints)*3)
+    pos_t[0:3] = pos_torso_t
+
+    i = 0; # store the offset according to the order of connection list
+    for (parent, child) in connection:
+        t = offset[i*3:(i+1)*3]
+        R = joint_ori(ori_t, parent)
+        pos_t[child*3:(child+1)*3] = pos_t[parent*3:(parent+1)*3] + np.dot(t, R)
+        i += 1
+
+    return pos_t
+
+def assemble_all(skel, pos_torso_arr, ori_arr, offset_arr):
+    pos_arr = np.concatenate(
+                            [[assemble(skel, pos_torso_arr[t, :], 
+                            ori_arr[t, :], offset_arr[t, :])]\
+                            for t in range(ori_arr.shape[0])], axis=0)
+    return pos_arr
+
+def ori2pos(skel, pos_torso_arr, ori_arr, offset):
     """
     Recover position of joints from the orientation.
     """
-    pos = np.zeros((pos_root.shape[0], 3*len(joint_idx)))
+    connection = skel['connection']
+    joints = skel['joints']
 
-    # root joint's position and orientation
-    root = joint_idx['torso']
-    pos[:, 3*root:3*(root+1)] = pos_root
+    pos_arr = np.zeros((pos_torso_arr.shape[0], 3*len(joints)))
+
+    # torso joint's position and orientation
+    pos_arr[:, 0:3] = pos_torso_arr
 
     # other joint's position and orientation
-    for t in range(pos.shape[0]):
+    for t in range(pos_arr.shape[0]):
         i = 0
         for (parent, child) in connection:
-            R = joint_ori(ori[t, :], parent)
-            pos_parent = joint_pos(pos[t, :], parent)
+            R = joint_ori(ori_arr[t, :], parent)
+            pos_parent = joint_pos(pos_arr[t, :], parent)
             offset_i = offset[3*i:3*(i+1)]
-            pos[t, 3*child:3*(child+1)] \
+            pos_arr[t, 3*child:3*(child+1)] \
                 = pos_parent + np.dot(offset_i, R)
             i += 1
-        return pos
+        return pos_arr
 
-def preprocess_joi(joint_idx, list_joi, pos, ori):
+def get_loss_direct(data, index):
+    """
+    Directly using the current frame as the prediction, compute the loss. 
+    """
+    loss_direct = 0
+    for i in range(index.shape[0]):
+        start = index[i, 0]
+        end = index[i, 1]
+        din = data[start:end-1, :]
+        dout = data[start+1:end, :]
+        loss_direct += np.sum((dout - din)**2) / data.shape[1]
+    loss_direct = np.sqrt(loss_direct / index.shape[0])
+    return loss_direct
+
+def preprocess_joi(list_joi, pos_arr, ori_torso_arr):
     """
     Preprocess to get data representations of joints of interest. 
     """
-    torso = joint_idx['torso']
-    data = np.zeros((pos.shape[0], 6+3*len(list_joi))).astype('float32')
-    for t in range(pos.shape[0]):
-        pos_torso = joint_pos(pos[t, :], torso)
-        ori_torso = joint_ori(ori[t, :], torso)
-        data[t, 0:3] = pos_torso
-        data[t, 3:6] = rmat_to_r3(ori_torso)
+    data = np.zeros((pos_arr.shape[0], 6+3*len(list_joi))).astype('float32')
+    pos_torso_arr = pos_arr[:, pos_ind(0)]
+
+    for t in range(pos_arr.shape[0]):
+        rotmat_torso = ori_torso_arr[t, :].reshape((3, 3))
+        data[t, 0:3] = pos_torso_arr[t, :]
+        data[t, 3:6] = rmat_to_r3(rotmat_torso)
+
         i = 0
         for j in list_joi: 
-            pos_j = joint_pos(pos[t, :], joint_idx[j])
+            pos_j = pos_arr[t, pos_ind(j)] 
             # Convert to body-centered
             data[t, 6+3*i:9+3*i] = \
-                pos_transform(pos_j, pos_torso, ori_torso)
+                pos_transform(pos_j, pos_torso_arr[t, :], rotmat_torso)
             i += 1
-    mean = np.mean(data, axis=0)
-    std = np.std(data, axis=0)
-    data = (data - mean) / std
 
-    pos_joi = np.concatenate([pos[:, 3*joint_idx[j]:3*(joint_idx[j]+1)] 
-                                for j in ['torso']+list_joi], 
+    pos_joi_arr = np.concatenate([pos_arr[:, pos_ind(j)] 
+                                for j in [0]+list_joi], 
                                 axis=1)
-    return data, mean, std, pos_joi
+    return data, pos_joi_arr
 
-def postprocess_joi(joint_idx, data, mean, std):
+def postprocess_joi(data):
     """
     Postprocess to get the positions of joints of interest. 
     """
-    data = data * std + mean
-
-    pos_joi = np.zeros((data.shape[0], data.shape[1]-3), ).astype('float32')
-    pos_joi[:, 0:3] = data[:, 0:3]
+    pos_joi_arr = np.zeros((data.shape[0], data.shape[1]-3), ).astype('float32')
+    pos_joi_arr[:, pos_ind(0)] = data[:, 0:3]
     
     for t in range(data.shape[0]):
-        pos_torso = data[t, 0:3]
         ori_torso = r3_to_rmat(data[t, 3:6])
         for i in range((data.shape[1]-3)/3-1):
-            pos_joi[t, 3+3*i:6+3*i] = \
-                pos_inv_transform(data[t, 6+3*i:9+3*i], pos_torso, ori_torso)
+            pos_joi_arr[t, pos_ind(1+i)] = \
+                pos_inv_transform(data[t, 6+3*i:9+3*i], data[t, 0:3], ori_torso)
 
-    return pos_joi
+    return pos_joi_arr
 
-def preprocess_relpos(joint_idx, connection, pos, ori):
+def preprocess_relpos(skel, pos_arr, ori_torso_arr):
     """
     Preprocess the raw position and orientation into relative positins. 
     """
-    torso = joint_idx['torso']
-    data = np.zeros((pos.shape[0], 3+pos.shape[1])).astype('float32')
-    for t in range(pos.shape[0]):
-        pos_torso = joint_pos(pos[t, :], torso)
-        ori_torso = joint_ori(ori[t, :], torso)
-        data[t, 0:3] = pos_torso
+    connection = skel['connection']
+
+    data = np.zeros((pos_arr.shape[0], 3+pos_arr.shape[1])).astype('float32')
+    for t in range(pos_arr.shape[0]):
+        pos_torso_t = pos_arr[t, pos_ind(0)]
+        ori_torso = ori_torso_arr[t, :].reshape((3, 3))
+        data[t, 0:3] = pos_torso_t
         data[t, 3:6] = rmat_to_r3(ori_torso)
 
         i = len(connection)-1
         for (p, c) in reversed(connection):
-            pos_p = joint_pos(pos[t, :], p)
-            pos_c = joint_pos(pos[t, :], c)
+            pos_p = pos_arr[t, pos_ind(p)]
+            pos_c = pos_arr[t, pos_ind(c)]
             # Convert to body-centered relative value
             data[t, 6+3*i:9+3*i] = \
                 pos_transform(pos_c, pos_p, ori_torso) # TODO: better way?
             i -= 1
 
-    mean = np.mean(data, axis=0)
-    std = np.std(data, axis=0)
-    data = (data - mean) / std
-    return data, mean, std
+    return data
 
-def postprocess_relpos(joint_idx, connection, data, mean, std):
+def postprocess_relpos(skel, data):
     """
-    Postprocessing relative positions into world positions. 
+    Postprocess relative positions into world positions. 
     """
-    torso = joint_idx['torso']
+    connection = skel['connection']
 
-    data = data * std + mean
-    pos = np.zeros((data.shape[0], data.shape[1]-3), ).astype('float32')
-    pos[:, 3*torso:3*(torso+1)] = data[:, 0:3]
+    pos_arr = np.zeros((data.shape[0], data.shape[1]-3), ).astype('float32')
+    pos_arr[:, pos_ind(0)] = data[:, 0:3]
     for t in range(data.shape[0]):
-        pos_torso = data[t, 0:3]
+        pos_torso_arr = data[t, 0:3]
         ori_torso = r3_to_rmat(data[t, 3:6])
 
         i = 0
         for (p, c) in connection:
-            pos_p = joint_pos(pos[t, :], p)
+            pos_p = joint_pos(pos_arr[t, :], p)
             offset = data[t, 6+3*i:9+3*i]
             # Convert to body-centered relative value
             pos_c = pos_inv_transform(offset, pos_p, ori_torso)
-            pos[t, 3*c:3*(c+1)] = pos_c
+            pos_arr[t, 3*c:3*(c+1)] = pos_c
             i += 1
 
-    return pos
+    return pos_arr
+
+def abs2inc(seq_abs):
+    """
+    Transform from absolute value into incremental value. 
+    """
+    seq_inc = np.empty((seq_abs.shape[0]-1, seq_abs.shape[1]))
+    for t in range(1, seq_abs.shape[0]):
+        seq_inc[t-1, :] = seq_abs[t, :] - seq_abs[t-1, :]
+    return seq_inc
+
+def inc2abs(init, seq_inc):
+    """ 
+    Transform from incremental value into absolute value. 
+    """
+    seq_abs = np.empty((seq_inc.shape[0]+1, seq_inc.shape[1]))
+    seq_abs[0, :] = init
+    for t in range(1, seq_abs.shape[0]):
+        seq_abs[t, :] = seq_abs[t-1, :] + seq_inc[t-1, :]
+    return seq_abs
+
+def abs2inc_forall(data_abs, index_abs):
+    data_inc = np.concatenate(
+                [abs2inc(data_abs[index_abs[i, 0]:index_abs[i, 1], :])\
+                for i in range(index_abs.shape[0])],
+                axis=0)
+    inits = np.concatenate(
+                            [data_abs[[index_abs[i, 0]], :]\
+                            for i in range(index_abs.shape[0])],
+                            axis=0)
+    index_inc = np.concatenate(
+                    [[[index_abs[i, 0]-i, index_abs[i, 1]-i-1]]\
+                    for i in range(index_abs.shape[0])],
+                    axis=0)
+    print 'data_inc.shape = {}'.format(data_inc.shape)
+    print 'inits.shape = {}'.format(inits.shape)
+    # print index_inc
+    return inits, data_inc, index_inc
+
+def inc2abs_forall(inits, data_inc, index_inc):
+    data_abs = np.concatenate(
+            [inc2abs(inits[i, :], data_inc[index_inc[i, 0]:index_inc[i, 1], :])\
+            for i in range(index_inc.shape[0])],
+            axis=0)
+    index_abs = np.concatenate(
+                                [[index_inc[i, 0]+i, index_inc[i, 1]+i+1]\
+                                for i in range(index_inc.shape[0])],
+                                axis=0)
+    return data_abs, index_abs
+
