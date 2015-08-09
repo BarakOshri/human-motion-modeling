@@ -48,7 +48,7 @@ def change_space(pos_arr, ori_arr, trans = np.zeros(3), R = np.eye(3)):
 
     return pos_arr_new, ori_arr_new
 
-def get_offset(skel, pos_t, ori_t):
+def get_offset_t(skel, pos_t, ori_t):
     """
     Return the offset arrays at the step t.
     """
@@ -73,7 +73,7 @@ def get_offset_arr(skel, pos_arr, ori_arr):
                 for t in range(pos_arr.shape[0])], axis=0)
     return offset_arr
 
-def assemble(skel, pos_torso_t, ori_t, offset):
+def assemble(skel, pos_torso_t, ori_t, offset_t):
     """
     Assemble torso positions and offsets into the world positions. 
     """
@@ -85,7 +85,7 @@ def assemble(skel, pos_torso_t, ori_t, offset):
 
     i = 0; # store the offset according to the order of connection list
     for (parent, child) in connection:
-        t = offset[i*3:(i+1)*3]
+        t = offset_t[i*3:(i+1)*3]
         R = joint_ori(ori_t, parent)
         pos_t[child*3:(child+1)*3] = pos_t[parent*3:(parent+1)*3] + np.dot(t, R)
         i += 1
@@ -99,7 +99,7 @@ def assemble_all(skel, pos_torso_arr, ori_arr, offset_arr):
                             for t in range(ori_arr.shape[0])], axis=0)
     return pos_arr
 
-def ori2pos(skel, pos_torso_arr, ori_arr, offset):
+def ori2pos(skel, pos_torso_arr, ori_arr, offset_t):
     """
     Recover position of joints from the orientation.
     """
@@ -117,7 +117,7 @@ def ori2pos(skel, pos_torso_arr, ori_arr, offset):
         for (parent, child) in connection:
             R = joint_ori(ori_arr[t, :], parent)
             pos_parent = joint_pos(pos_arr[t, :], parent)
-            offset_i = offset[3*i:3*(i+1)]
+            offset_i = offset_t[3*i:3*(i+1)]
             pos_arr[t, 3*child:3*(child+1)] \
                 = pos_parent + np.dot(offset_i, R)
             i += 1
