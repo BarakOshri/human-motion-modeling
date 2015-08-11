@@ -24,7 +24,7 @@ from basenn import *
 class CRBM(BaseNN):
     """Conditional Restricted Boltzmann Machine (CRBM)  """
     def __init__(self, 
-                input=None, input_history=None, output=None,
+                input=None, input_history=None, 
                 n_visible=49, n_hidden=500, delay=6, 
                 A=None, B=None, W=None, hbias=None,
                 vbias=None, numpy_rng=None,
@@ -113,10 +113,6 @@ class CRBM(BaseNN):
         self.input_history = input_history
         if not input_history:
             self.input_history = T.matrix('input_history')
-
-        self.output = output
-        if not output:
-            self.output = T.matrix('output')
 
         self.W = W
         self.A = A

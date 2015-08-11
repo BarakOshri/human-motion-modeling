@@ -40,7 +40,7 @@ def change_space(pos_arr, ori_arr, trans = np.zeros(3), R = np.eye(3)):
     for t in range(pos_arr.shape[0]):
         for j in range(pos_arr.shape[1]/3):
             v = pos_arr[t, pos_ind(j)]
-            pos_arr_new[t, pos_ind(j)] = np.dot(v - [trans], R.T)
+            pos_arr_new[t, pos_ind(j)] = np.dot(v - trans, R.T)
 
         for j in range(ori_arr.shape[1]/9):
             o = ori_arr[t, ori_ind(j)].reshape(3, 3)
@@ -145,16 +145,16 @@ def preprocess_joi(list_joi, pos_arr, ori_torso_arr):
     pos_torso_arr = pos_arr[:, pos_ind(0)]
 
     for t in range(pos_arr.shape[0]):
-        rotmat_torso = ori_torso_arr[t, :].reshape((3, 3))
+        rmat_torso = ori_torso_arr[t, :].reshape((3, 3))
         data[t, 0:3] = pos_torso_arr[t, :]
-        data[t, 3:6] = rmat_to_r3(rotmat_torso)
+        data[t, 3:6] = rmat_to_r3(rmat_torso)
 
         i = 0
         for j in list_joi: 
             pos_j = pos_arr[t, pos_ind(j)] 
             # Convert to body-centered
             data[t, 6+3*i:9+3*i] = \
-                pos_transform(pos_j, pos_torso_arr[t, :], rotmat_torso)
+                pos_transform(pos_j, pos_torso_arr[t, :], rmat_torso)
             i += 1
 
     pos_joi_arr = np.concatenate([pos_arr[:, pos_ind(j)] 
@@ -186,7 +186,7 @@ def preprocess_relpos(skel, pos_arr, ori_torso_arr):
     data = np.zeros((pos_arr.shape[0], 3+pos_arr.shape[1])).astype('float32')
     for t in range(pos_arr.shape[0]):
         pos_torso_t = pos_arr[t, pos_ind(0)]
-        ori_torso = ori_torso_arr[t, :].reshape((3, 3))
+        rmat_torso = ori_torso_arr[t, :].reshape((3, 3))
         data[t, 0:3] = pos_torso_t
         data[t, 3:6] = rmat_to_r3(ori_torso)
 
@@ -195,8 +195,8 @@ def preprocess_relpos(skel, pos_arr, ori_torso_arr):
             pos_p = pos_arr[t, pos_ind(p)]
             pos_c = pos_arr[t, pos_ind(c)]
             # Convert to body-centered relative value
-            data[t, 6+3*i:9+3*i] = \
-                pos_transform(pos_c, pos_p, ori_torso) # TODO: better way?
+            data[t, 6+3*i:9+3*i] = pos_transform(pos_c, pos_p, rmat_torso) 
+            # TODO: better way?
             i -= 1
 
     return data
@@ -223,6 +223,181 @@ def postprocess_relpos(skel, data):
             i += 1
 
     return pos_arr
+
+def preprocess_relexpmap_dev(skel, pos_arr, ori_arr):
+    """
+    Preprocess the pos_arr and ori_arr into relative exponential maps and 
+    offset deviations.
+    """
+    joints = skel['joints']
+    connection = skel['connection']
+
+    pos_torso_arr = pos_arr[:, pos_ind(0)]
+    expmap_torso_arr = np.concatenate(
+                    [[rmat_to_r3(ori_arr[t, ori_ind(0)].reshape((3, 3)))]\
+                    for t in range(ori_arr.shape[0])], axis=0)
+    
+    relpos_arr = np.empty((pos_arr.shape[0], 3*len(connection)))
+    relexpmap_arr = np.empty((pos_arr.shape[0], 3*(len(connection)-4)))
+
+    for t in range(pos_arr.shape[0]):
+        i = 0
+        for (p, c) in connection:
+            pos_p = pos_arr[t, pos_ind(p)]
+            pos_c = pos_arr[t, pos_ind(c)]
+            rmat_p = ori_arr[t, ori_ind(p)].reshape(3, 3)
+            pos_c_in_p = np.dot((pos_c - pos_p), rmat_p.T)
+            relpos_arr[t, i*3:(i+1)*3] = pos_c_in_p
+
+            if i < len(connection) - 4:
+                rmat_c = ori_arr[t, ori_ind(c)].reshape(3, 3)
+                relrmat = np.dot(np.dot(rmat_p, rmat_c), rmat_p.T)
+                relexpmap = rmat_to_r3(relrmat)
+                relexpmap_arr[t, i*3:(i+1)*3] = relexpmap
+            i += 1
+
+    offset_arr = get_offset_arr(skel, pos_arr, ori_arr)
+    offset_mean = np.mean(offset_arr, axis=0)
+    dev_arr = relpos_arr - offset_mean
+
+    data = np.concatenate([pos_torso_arr, expmap_torso_arr, relexpmap_arr, 
+                            dev_arr], axis=1)
+    return data, offset_mean
+
+def postprocess_relexpmap_dev(skel, data, offset_mean):
+    """
+    Postprocess the relative exponential maps and 
+    offset deviations back into pos_arr and ori_arr.
+    """
+    joints = skel['joints']
+    connection = skel['connection']
+
+    relexpmap_arr = data[:, 6:6+3*(len(connection)-4)]
+    dev_arr = data[:, 6+3*(len(connection)-4):]
+    
+    pos_arr = np.empty((data.shape[0], 3*len(joints))) 
+    ori_arr = np.empty((data.shape[0], 9*(len(joints)-4))) 
+
+    pos_arr[:, pos_ind(0)] = data[:, 0:3]
+    ori_arr[:, ori_ind(0)] = np.concatenate(
+                                [r3_to_rmat(data[t, 3:6]).reshape(1, 9)\
+                                for t in range(data.shape[0])], axis=0)
+    
+    for t in range(pos_arr.shape[0]):
+        i = 0 
+        for (p, c) in connection:
+            pos_p = pos_arr[t, pos_ind(p)]
+            rmat_p = ori_arr[t, ori_ind(p)].reshape(3, 3)
+            pos_c_in_p = offset_mean[i*3:(i+1)*3] + dev_arr[t, i*3:(i+1)*3]
+            pos_c = pos_p + np.dot(pos_c_in_p, rmat_p)
+            pos_arr[t, c*3:(c+1)*3] = pos_c
+
+            if c < len(joints) - 4:
+                relrmat = r3_to_rmat(relexpmap_arr[t, i*3:(i+1)*3])
+                rmat_c = np.dot(rmat_p.T, np.dot(relrmat, rmat_p))
+                ori_c = rmat_c.reshape(1, 9)
+                ori_arr[t, c*9:(c+1)*9] = ori_c
+
+            i += 1
+
+    return pos_arr, ori_arr
+
+def preprocess_relexpmap_dev_perseq(skel, index, pos_arr, ori_arr, 
+                                    has_dev=True):
+    """
+    """
+    joints = skel['joints']
+    connection = skel['connection']
+
+    # offset_arr = get_offset_arr(skel, pos_arr, ori_arr)
+    # offset_mean = np.mean(offset_arr, axis=0)
+
+    pos_torso_arr = pos_arr[:, pos_ind(0)]
+    expmap_torso_arr = np.concatenate(
+                    [[rmat_to_r3(ori_arr[t, ori_ind(0)].reshape((3, 3)))]\
+                    for t in range(ori_arr.shape[0])], axis=0)
+    
+    relpos_arr = np.empty((pos_arr.shape[0], 3*len(connection)))
+    relexpmap_arr = np.empty((pos_arr.shape[0], 3*(len(connection)-4)))
+
+    for t in range(pos_arr.shape[0]):
+        j = 0
+        for (p, c) in connection:
+            pos_p = pos_arr[t, pos_ind(p)]
+            pos_c = pos_arr[t, pos_ind(c)]
+            rmat_p = ori_arr[t, ori_ind(p)].reshape(3, 3)
+            pos_c_in_p = np.dot((pos_c - pos_p), rmat_p.T)
+            relpos_arr[t, j*3:(j+1)*3] = pos_c_in_p
+
+            if j < len(connection) - 4:
+                rmat_c = ori_arr[t, ori_ind(c)].reshape(3, 3)
+                relrmat = np.dot(np.dot(rmat_p, rmat_c), rmat_p.T)
+                relexpmap = rmat_to_r3(relrmat)
+                relexpmap_arr[t, j*3:(j+1)*3] = relexpmap
+            j += 1
+
+    offset_mean_arr = np.empty((index.shape[0], 3*len(connection)))
+    dev_arr = np.empty((pos_arr.shape[0], 3*len(connection)))
+    for i in range(index.shape[0]):
+        start = index[i, 0]
+        end = index[i, 1]
+        offset_mean_arr[i, :] = np.mean(
+            get_offset_arr(skel, pos_arr[start:end, :], ori_arr[start:end, :]), 
+            axis=0)
+        dev_arr[start:end, :] = relpos_arr[start:end, :] - offset_mean_arr[i, :]
+
+    if has_dev: 
+        data = np.concatenate([pos_torso_arr, expmap_torso_arr, relexpmap_arr, 
+                                dev_arr], axis=1)
+    else:
+        data = np.concatenate([pos_torso_arr, expmap_torso_arr, relexpmap_arr], 
+                                axis=1)
+    return data, offset_mean_arr
+
+def postprocess_relexpmap_dev_perseq(skel, index, data, offset_mean_arr, 
+                                    has_dev=True):
+    """
+    """
+    joints = skel['joints']
+    connection = skel['connection']
+
+    relexpmap_arr = data[:, 6:6+3*(len(connection)-4)]
+
+    if has_dev: 
+        dev_arr = data[:, 6+3*(len(connection)-4):]
+    else:
+        dev_arr = np.zeros((data.shape[0], 3*len(connection)))
+    
+    pos_arr = np.empty((data.shape[0], 3*len(joints))) 
+    ori_arr = np.empty((data.shape[0], 9*(len(joints)-4))) 
+
+    pos_arr[:, pos_ind(0)] = data[:, 0:3]
+    ori_arr[:, ori_ind(0)] = np.concatenate(
+                                [r3_to_rmat(data[t, 3:6]).reshape(1, 9)\
+                                for t in range(data.shape[0])], axis=0)
+    
+    for i in range(index.shape[0]):
+        start = index[i, 0]
+        end = index[i, 1]
+        for t in range(start, end):
+            j = 0 
+            for (p, c) in connection:
+                pos_p = pos_arr[t, pos_ind(p)]
+                rmat_p = ori_arr[t, ori_ind(p)].reshape(3, 3)
+                pos_c_in_p = offset_mean_arr[i, j*3:(j+1)*3] +\
+                             dev_arr[t, j*3:(j+1)*3]
+                pos_c = pos_p + np.dot(pos_c_in_p, rmat_p)
+                pos_arr[t, c*3:(c+1)*3] = pos_c
+
+                if c < len(joints) - 4:
+                    relrmat = r3_to_rmat(relexpmap_arr[t, j*3:(j+1)*3])
+                    rmat_c = np.dot(rmat_p.T, np.dot(relrmat, rmat_p))
+                    ori_c = rmat_c.reshape(1, 9)
+                    ori_arr[t, c*9:(c+1)*9] = ori_c
+
+                j += 1
+
+    return pos_arr, ori_arr
 
 def abs2inc(seq_abs):
     """

@@ -74,8 +74,10 @@ crbm, batchdata = train_crbm(learning_rate=1e-2,
                             n_hidden=100,
                             batchdata=batchdata, 
                             seqlen=seqlen, 
-                            training_epochs=500) 
+                            training_epochs=10000) 
                             # path_model=os.path.join(path_models, 'crbm.npy'))
+
+crbm.save(os.path.join(path_models, 'crbm'))
 
 
 # # Generating

@@ -66,7 +66,7 @@ crbm = CRBM(input=x, input_history=x_history, n_visible=n_dim, \
 crbm.load(os.path.join(path_models, 'crbm.npy'))
 
 generated_series = crbm.generate(orig_data, orig_history, n_samples=100, 
-                                    n_gibbs=30)
+                                    n_gibbs=300)
 generated_series = np.concatenate((orig_history.reshape(len(data_idx),
                                                         crbm.delay,
                                                         crbm.n_visible \

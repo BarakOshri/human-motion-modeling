@@ -23,18 +23,17 @@ from basenn import *
 
 class CRBM(BaseNN):
     """Conditional Restricted Boltzmann Machine (CRBM)  """
-    def __init__(self, 
-                input=None, input_history=None, output=None,
-                n_visible=49, n_hidden=500, delay=6, 
-                A=None, B=None, W=None, hbias=None,
-                vbias=None, numpy_rng=None,
-                theano_rng=None):
+    def __init__(self, x=None, x_history=None, 
+                    g=None, g_history=None,
+                    n_visible=49, n_hidden=500, delay=6, 
+                    A=None, B=None, W=None, hbias=None, vbias=None, 
+                    numpy_rng=None, theano_rng=None):
         """
         CRBM constructor. Defines the parameters of the model along with
         basic operations for inferring hidden from visible (and vice-versa),
         as well as for performing CD updates.
 
-        :param input: None for standalone RBMs or symbolic variable if RBM is
+        :param x: None for standalone RBMs or symbolic variable if RBM is
         part of a larger graph.
 
         :param n_visible: number of visible units
@@ -105,18 +104,22 @@ class CRBM(BaseNN):
             vbias = theano.shared(value=numpy.zeros(n_visible,
                                 dtype=theano.config.floatX), name='vbias')
 
-        # initialize input layer for standalone CRBM or layer0 of CDBN
-        self.input = input
-        if not input:
-            self.input = T.matrix('input')
+        # initialize x layer for standalone CRBM or layer0 of CDBN
+        self.x = x
+        if not x:
+            self.x = T.matrix('x')
 
-        self.input_history = input_history
-        if not input_history:
-            self.input_history = T.matrix('input_history')
+        self.x_history = x_history
+        if not x_history:
+            self.x_history = T.matrix('x_history')
 
-        self.output = output
-        if not output:
-            self.output = T.matrix('output')
+        self.g = g
+        if not g:
+            self.g = T.matrix('g')
+
+        self.g_history = g_history
+        if not g_history:
+            self.g_history = T.matrix('g_history')
 
         self.W = W
         self.A = A
@@ -235,7 +238,7 @@ class CRBM(BaseNN):
 
         # compute positive phase
         pre_sigmoid_ph, ph_mean, ph_sample = \
-                        self.sample_h_given_v(self.input, self.input_history)
+                        self.sample_h_given_v(self.x, self.x_history)
 
         # for CD, we use the newly generate hidden sample
         chain_start = ph_sample
@@ -254,15 +257,15 @@ class CRBM(BaseNN):
                     # chain_start is the initial state corresponding to the
                     # 5th output
                     outputs_info=[None, None, None, None, chain_start],
-                    non_sequences=self.input_history,
+                    non_sequences=self.x_history,
                     n_steps=k)
 
         # determine gradients on CRBM parameters
         # not that we only need the sample at the end of the chain
         chain_end = nv_samples[-1]
 
-        cost = T.mean(self.free_energy(self.input, self.input_history)) - \
-               T.mean(self.free_energy(chain_end, self.input_history))
+        cost = T.mean(self.free_energy(self.x, self.x_history)) - \
+               T.mean(self.free_energy(chain_end, self.x_history))
         # We must not compute the gradient through the gibbs sampling
         gparams = T.grad(cost, self.params, consider_constant=[chain_end])
 
@@ -286,7 +289,7 @@ class CRBM(BaseNN):
         """Approximation to the reconstruction error
         """
         # sum over dimensions, mean over cases
-        recon = T.mean(T.sum(T.sqr(self.input - pre_sigmoid_nv), axis=1))
+        recon = T.mean(T.sum(T.sqr(self.x - pre_sigmoid_nv), axis=1))
 
         return recon
 
@@ -352,7 +355,6 @@ def train_crbm(
                 batch_size=100,
                 n_hidden=100, 
                 delay=6,
-                n_samples=1,
                 path_model=None):
     """
     Demonstrate how to train a CRBM.
@@ -377,7 +379,6 @@ def train_crbm(
     # compute number of minibatches for training, validation and testing
     # n_train_batches = batchdata.get_value(borrow=True).shape[0] / batch_size
     n_dim = batchdata.get_value(borrow=True).shape[1]
-    print n_dim
 
     # valid starting indices
     batchdataindex = []
@@ -404,7 +405,7 @@ def train_crbm(
     # (state = hidden layer of chain)
 
     # construct the CRBM class
-    crbm = CRBM(input=x, input_history=x_history, n_visible=n_dim, \
+    crbm = CRBM(x=x, x_history=x_history, n_visible=n_dim, \
                 n_hidden=n_hidden, delay=delay, numpy_rng=rng,
                 theano_rng=theano_rng)
 
@@ -412,7 +413,7 @@ def train_crbm(
         crbm.load(path_model)
 
     # get the cost and the gradient corresponding to one step of CD-15
-    cost, updates = crbm.get_cost_updates(lr=learning_rate, k=n_samples)
+    cost, updates = crbm.get_cost_updates(lr=learning_rate, k=1)
 
     #################################
     #     Training the CRBM         #
@@ -491,18 +492,3 @@ if __name__ == '__main__':
                                        generated_series), axis=1)
 
     bd = batchdata.get_value(borrow=True)
-
-    # # plot first dimension of each sequence
-    # for i in xrange(len(generated_series)):
-    #     # original
-    #     start = data_idx[i]
-    #     plt.subplot(len(generated_series), 1, i)
-    #     plt.plot(bd[start - crbm.delay:start + 100 - crbm.delay, 1],
-    #              label='true', linestyle=':')
-    #     plt.plot(generated_series[i, :100, 1], label='predicted',
-    #              linestyle='-')
-
-    # leg = plt.legend()
-    # ltext = leg.get_texts()  # all the text.Text instance in the legend
-    # plt.setp(ltext, fontsize=9)
-

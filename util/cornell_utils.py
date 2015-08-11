@@ -420,6 +420,11 @@ def read_and_preprocess(path):
     index = []
     return pos_arr, ori_arr, data, index
 
+# def amend_ori_arr(skel, pos_arr, ori_arr):
+#     """
+#     Amend orientation
+#     """
+
 ################################################################################
 # Postprocess Functions
 ################################################################################

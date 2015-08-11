@@ -36,9 +36,13 @@ def quat_to_r3(quat):
     theta = 2 * arccos(quat.q[3])
     v = quat.q[0:3] / sin(1/2 * theta) * theta
     """
-    theta = 2 * np.arccos(quat.q[3])
-    # print 'quat_to_r3:theta: {}'.format(theta)  # debug
-    v = quat.q[0:3] / np.sin(0.5 * theta) * theta
+    theta = 2 * np.arccos(min(1, quat.q[3])) # TODO: quat.q[3] > 1?
+    if theta < MACHINE_PRECISION or \
+        np.abs(np.sum(quat.q - [0, 0, 0, 1])) < MACHINE_PRECISION:
+        v = [0, 0, 0]
+    else: 
+        # print 'quat_to_r3:theta: {}'.format(theta)  # debug
+        v = quat.q[0:3] / np.sin(0.5 * theta) * theta
     return v
 
 def r3_to_rmat(v):
