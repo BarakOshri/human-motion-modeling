@@ -62,10 +62,10 @@ pos_joi_recon = postprocess_joi(data_joi)
 
 print 'done.'
 
-print 'Preprocessing the relative positions...'
+print 'Preprocessing the body-centered positions...'
 
-data_relpos = preprocess_relpos(skel, pos_arr, ori_torso_arr)
-pos_recon_arr = postprocess_relpos(skel, data_relpos)
+bcpos_arr = preprocess_bcpos(skel, pos_arr, ori_torso_arr)
+pos_recon_arr = postprocess_bcpos(skel, bcpos_arr)
 
 print 'done.'
 
@@ -75,7 +75,7 @@ np.save(os.path.join(path_dataset, 'pos_arr'), pos_arr)
 np.save(os.path.join(path_dataset, 'ori_arr'), ori_arr)
 np.save(os.path.join(path_dataset, 'data_joi'), data_joi)
 np.save(os.path.join(path_dataset, 'pos_joi_arr'), pos_joi_arr)
-np.save(os.path.join(path_dataset, 'data_relpos'), data_relpos)
+np.save(os.path.join(path_dataset, 'bcpos_arr'), bcpos_arr)
 
 toc = clock()
 print 'Done in {} secs.'.format(toc-tic)
