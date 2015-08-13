@@ -11,9 +11,8 @@ class RNNL1(BaseNN):
     """
     
     def __init__(self, n_x, n_h, n_y,
-                    activation=T.nnet.sigmoid, 
-                    output_type='real',
-                    dynamics=lambda x, y: y, # lambda:x, y: x+y,
+                    activation=T.nnet.sigmoid, output_type='real',
+                    cumulative=True,
                     en_generate=True,
                     numpy_rng=None):
         '''
@@ -31,8 +30,9 @@ class RNNL1(BaseNN):
             Activation function.
         output_type: str
             Output type. 
-        dynamics:
-
+        cumulative: bool
+            If True, the output is cumulative to previous output;
+            if False, it's not. 
         en_generate: bool
             If True, generative functions are enabled
             if False, it's not. 
@@ -67,24 +67,26 @@ class RNNL1(BaseNN):
 
         self.activation = activation
         self.output_type = output_type
-        self.dynamics = dynamics
+        self.cumulative = cumulative
 
         self.x = T.matrix(name='x') # input
         self.d = T.matrix(name='d') # groud truth output
         self.lr = T.scalar('lr') # learning rate
 
         # recurrent function
-        def _step(x_t, h_tm1):
+        def step(x_t, h_tm1):
+            """
+            Recurrent function
+            """
             h_t = self.activation(T.dot(x_t, self.Wxh) +\
-                                    T.dot(h_tm1, self.Whh) +\
-                                    self.bh)
-            # prey_t = T.dot(h_t, self.Why) + self.by
-            # y_t = self.dynamics(x_t, prey_t)
-
-            y_t = T.dot(h_t, self.Why) + self.by
+                                    T.dot(h_tm1, self.Whh) + self.bh)
+            if self.cumulative:
+                y_t = T.dot(h_t, self.Why) + self.by + x_t
+            else:
+                y_t = T.dot(h_t, self.Why) + self.by
             return h_t, y_t
 
-        [self.h, self.y], _ = theano.scan(fn=_step,
+        [self.h, self.y], _ = theano.scan(fn=step,
                                             sequences=self.x, 
                                             outputs_info=[self.h0, None])
 
@@ -112,26 +114,24 @@ class RNNL1(BaseNN):
             # Note: input and output should have the same dimension.
             self.n_gen = T.iscalar('n_gen') # number of steps to generate
 
-            # generate the new sequence
-            def _generate(h_seed, y_seed):
-                [_h_gen, _y_gen], _ = theano.scan(
-                    fn=lambda h_tm1, y_tm1: _step(y_tm1, h_tm1),
+            # generatation function
+            def generate(h_seed, y_seed):
+                [h_gen, y_gen], _ = theano.scan(
+                    fn=lambda h_tm1, y_tm1: step(y_tm1, h_tm1),
                     outputs_info= [h_seed, y_seed],
                     n_steps=self.n_gen)
-                h_gen = T.concatenate([[h_seed], _h_gen], axis=0)
-                y_gen = T.concatenate([[y_seed], _y_gen], axis=0)
                 return h_gen, y_gen
 
-            self.h_gen, self.y_gen = _generate(self.h[-1, :], self.y[-1, :])
+            self.h_gen, self.y_gen = generate(self.h[-1, :], self.y[-1, :])
             self.generate = theano.function(inputs=[self.x, self.n_gen], 
                                             outputs=self.y_gen)
 
-            # predict T steps ahead
-            def _predict_T(h_seed, y_seed):
-                h_gen, y_gen  = _generate(h_seed, y_seed)
-                return y_gen[-1, :]
+            # T-step ahead prediction function
+            def predict_T(h_seed, y_seed):
+                h_T, y_T  = generate(h_seed, y_seed)
+                return y_T[-1, :]
 
-            self.y_T, _ = theano.scan(fn=_predict_T, 
+            self.y_T, _ = theano.scan(fn=predict_T, 
                                         sequences=[self.h, self.y])
 
             self.predict_T = theano.function(inputs=[self.x, self.n_gen],
