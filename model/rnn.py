@@ -11,7 +11,7 @@ class RNNL1(BaseNN):
     """
     
     def __init__(self, n_x, n_h, n_y,
-                    activation=T.nnet.sigmoid, 
+                    activation=T.tanh, 
                     output_type='real',
                     dynamics=lambda x, y: y, # lambda:x, y: x+y,
                     en_generate=True,
@@ -78,10 +78,10 @@ class RNNL1(BaseNN):
             h_t = self.activation(T.dot(x_t, self.Wxh) +\
                                     T.dot(h_tm1, self.Whh) +\
                                     self.bh)
-            # prey_t = T.dot(h_t, self.Why) + self.by
-            # y_t = self.dynamics(x_t, prey_t)
+            prey_t = T.dot(h_t, self.Why) + self.by
+            y_t = self.dynamics(x_t, prey_t)
 
-            y_t = T.dot(h_t, self.Why) + self.by
+            # y_t = T.dot(h_t, self.Why) + self.by
             return h_t, y_t
 
         [self.h, self.y], _ = theano.scan(fn=_step,
@@ -146,7 +146,7 @@ class GRNNL1(BaseNN):
     
     def __init__(self, n_g, n_x, n_h, n_y,
                     activation=T.nnet.sigmoid, output_type='real',
-                    cumulative=True,
+                    dynamics=lambda x, y: y, # lambda:x, y: x+y,
                     en_generate=True,
                     numpy_rng=None):
         '''

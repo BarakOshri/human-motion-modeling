@@ -177,46 +177,46 @@ def postprocess_joi(data):
 
     return pos_joi_arr
 
-def preprocess_relpos(skel, pos_arr, ori_torso_arr):
+def preprocess_bcpos(skel, pos_arr, ori_torso_arr):
     """
-    Preprocess the raw position and orientation into relative positins. 
+    Preprocess the raw position and orientation into body-cente positins. 
     """
     connection = skel['connection']
 
-    data = np.zeros((pos_arr.shape[0], 3+pos_arr.shape[1])).astype('float32')
+    bcpos_arr = np.zeros((pos_arr.shape[0], 3+pos_arr.shape[1])).astype('float32')
     for t in range(pos_arr.shape[0]):
         pos_torso_t = pos_arr[t, pos_ind(0)]
         rmat_torso = ori_torso_arr[t, :].reshape((3, 3))
-        data[t, 0:3] = pos_torso_t
-        data[t, 3:6] = rmat_to_r3(ori_torso)
+        bcpos_arr[t, 0:3] = pos_torso_t
+        bcpos_arr[t, 3:6] = rmat_to_r3(rmat_torso)
 
         i = len(connection)-1
         for (p, c) in reversed(connection):
             pos_p = pos_arr[t, pos_ind(p)]
             pos_c = pos_arr[t, pos_ind(c)]
             # Convert to body-centered relative value
-            data[t, 6+3*i:9+3*i] = pos_transform(pos_c, pos_p, rmat_torso) 
+            bcpos_arr[t, 6+3*i:9+3*i] = pos_transform(pos_c, pos_p, rmat_torso) 
             # TODO: better way?
             i -= 1
 
-    return data
+    return bcpos_arr
 
-def postprocess_relpos(skel, data):
+def postprocess_bcpos(skel, bcpos_arr):
     """
     Postprocess relative positions into world positions. 
     """
     connection = skel['connection']
 
-    pos_arr = np.zeros((data.shape[0], data.shape[1]-3), ).astype('float32')
-    pos_arr[:, pos_ind(0)] = data[:, 0:3]
-    for t in range(data.shape[0]):
-        pos_torso_arr = data[t, 0:3]
-        ori_torso = r3_to_rmat(data[t, 3:6])
+    pos_arr = np.zeros((bcpos_arr.shape[0], bcpos_arr.shape[1]-3), ).astype('float32')
+    pos_arr[:, pos_ind(0)] = bcpos_arr[:, 0:3]
+    for t in range(bcpos_arr.shape[0]):
+        pos_torso_arr = bcpos_arr[t, 0:3]
+        ori_torso = r3_to_rmat(bcpos_arr[t, 3:6])
 
         i = 0
         for (p, c) in connection:
             pos_p = joint_pos(pos_arr[t, :], p)
-            offset = data[t, 6+3*i:9+3*i]
+            offset = bcpos_arr[t, 6+3*i:9+3*i]
             # Convert to body-centered relative value
             pos_c = pos_inv_transform(offset, pos_p, ori_torso)
             pos_arr[t, 3*c:3*(c+1)] = pos_c
@@ -403,7 +403,7 @@ def abs2inc(seq_abs):
     """
     Transform from absolute value into incremental value. 
     """
-    seq_inc = np.empty((seq_abs.shape[0]-1, seq_abs.shape[1]))
+    seq_inc = np.empty((seq_abs.shape[0]-1, seq_abs.shape[1])).astype('float32')
     for t in range(1, seq_abs.shape[0]):
         seq_inc[t-1, :] = seq_abs[t, :] - seq_abs[t-1, :]
     return seq_inc
@@ -412,7 +412,7 @@ def inc2abs(init, seq_inc):
     """ 
     Transform from incremental value into absolute value. 
     """
-    seq_abs = np.empty((seq_inc.shape[0]+1, seq_inc.shape[1]))
+    seq_abs = np.empty((seq_inc.shape[0]+1, seq_inc.shape[1])).astype('float32')
     seq_abs[0, :] = init
     for t in range(1, seq_abs.shape[0]):
         seq_abs[t, :] = seq_abs[t-1, :] + seq_inc[t-1, :]

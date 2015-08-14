@@ -16,8 +16,8 @@ from matplotlib import animation
 from IPython.display import HTML
 
 def plot_skeleton(skel, 
-                    pos_t, posconf_t=None, pos_joi_t=None,
-                    dotsize=50, c=['g', 'b', 'r', 'y'], alpha=0.8,
+                    pos_t, pos_joi_t=None,
+                    dotsize=40, alpha=0.8,
                     ax=None, view=None,
                     figsize=(10, 10), 
                     xlim=(-1500, 1500), 
@@ -33,15 +33,11 @@ def plot_skeleton(skel,
         Skeleton structure of the MoCap data.
     pos_t: float array
         World position of joints. 
-    posconf_t: float array
-        Position-confidence array of joints.
     pos_joi_t: float array
         World position of joints of interest.
 
     dotsize: int
         Plotting size of each joints. 
-    c: list
-        Color of confident joints, unconfident joints and lines. 
     alpha: float
         Transparency of plotting. 
 
@@ -67,24 +63,16 @@ def plot_skeleton(skel,
 
     connection = skel['connection']
 
-    # plot skeleton joints and unconfident joints
     posX = [pos_t[i*3+0] for i in range(len(pos_t)/3)]
     posY = [pos_t[i*3+1] for i in range(len(pos_t)/3)]
     posZ = [pos_t[i*3+2] for i in range(len(pos_t)/3)]
-
-    uncfposX = [pos_t[i*3+0] for i in find(posconf_t == 0)]
-    uncfposY = [pos_t[i*3+1] for i in find(posconf_t == 0)]
-    uncfposZ = [pos_t[i*3+2] for i in find(posconf_t == 0)]
-
-    ax.scatter(posX, posY, posZ, c=c[0], s=dotsize, alpha=alpha)
-    ax.scatter(uncfposX, uncfposY, uncfposZ, c=c[2], s=dotsize, alpha=alpha)
-
+    ax.scatter(posX, posY, posZ, c='g', s=dotsize, alpha=alpha) 
     # plot joints of interests
     if pos_joi_t != None:
         pos_joiX = [pos_joi_t[i*3+0] for i in range(len(pos_joi_t)/3)]
         pos_joiY = [pos_joi_t[i*3+1] for i in range(len(pos_joi_t)/3)]
         pos_joiZ = [pos_joi_t[i*3+2] for i in range(len(pos_joi_t)/3)]
-        ax.scatter(pos_joiX, pos_joiY, pos_joiZ, c=c[3], s=dotsize, alpha=alpha)
+        ax.scatter(pos_joiX, pos_joiY, pos_joiZ, c='y', s=dotsize, alpha=alpha)
 
     # plot lines
     lineX1 = [pos_t[p1*3+0] for (p1, p2) in connection]
@@ -98,15 +86,16 @@ def plot_skeleton(skel,
     for i in range(len(connection)):
         ax.plot([lineX1[i], lineX2[i]], 
                 [lineY1[i], lineY2[i]], 
-                [lineZ1[i], lineZ2[i]], c[1])
+                [lineZ1[i], lineZ2[i]], 'b')
 
     return
 
 
 def animate_skeleton(skel, 
-                        pos_arr, posconf_arr=None, 
+                        pos_arr, 
                         pos_joi_arr=None,
-                        dotsize=50, linesize=30, c=['g', 'b', 'r', 'y'], alpha=0.8,
+                        n_seed=0,
+                        dotsize=40, alpha=0.8,
                         fig=None, ax=None, view=None,
                         figsize=(10, 10), 
                         xlim=(-1500, 1500), 
@@ -122,15 +111,11 @@ def animate_skeleton(skel,
         Skeleton structure of the MoCap data.
     pos_arr: float (len_seq, len(idx_pos))
         World position of joints. 
-    posconf_arr: float (len_seq, num_pos)
-        Position-confidence array of joints.
     pos_joi_arr: float array
         World position of joints of interest.
 
     dotsize: int
         Plotting size of each joints. 
-    c: list
-        Color of confident joints, unconfident joints and lines. 
     alpha: float
         Transparency of plotting. 
 
@@ -169,22 +154,21 @@ def animate_skeleton(skel,
 
     len_seq = pos_arr.shape[0]
 
+    plot_frame_num =\
+        ax.text2D(0.05, 0.95, '', transform=ax.transAxes)
+
     plot_pos =\
-        ax.scatter([], [], [], c=c[0], s=dotsize, alpha=alpha, animated=True)
-    plot_uncfpos =\
-        ax.scatter([], [], [], c=c[2], s=dotsize, alpha=alpha)
+        ax.scatter([], [], [], c='g', s=dotsize, alpha=alpha, animated=True)
     plot_pos_joi =\
-        ax.scatter([], [], [], c=c[3], s=dotsize, alpha=alpha)
+        ax.scatter([], [], [], c='y', s=dotsize, alpha=alpha)
 
     plot_lines =\
-            [ax.plot([], [], [], c[1]) for i in range(len(connection))]
+            [ax.plot([], [], [], 'b') for i in range(len(connection))]
 
     def init():
-        plot_pos._offsets3d = (np.ma.ravel([]), 
-                                    np.ma.ravel([]), 
-                                    np.ma.ravel([]))
+        plot_frame_num.set_text('')
 
-        plot_uncfpos._offsets3d = (np.ma.ravel([]), 
+        plot_pos._offsets3d = (np.ma.ravel([]), 
                                     np.ma.ravel([]), 
                                     np.ma.ravel([]))
 
@@ -192,26 +176,17 @@ def animate_skeleton(skel,
             line[0].set_data([], [])
             line[0].set_3d_properties([])
 
-        return [plot_pos] + [plot_uncfpos] + plot_lines
+        return [plot_pos] + [plot_pos_joi] +plot_lines
 
     def update(t):
+        # frame number
+        plot_frame_num.set_text('frame: {}'.format(t))
+
         # skeleton joints
         pos_t = pos_arr[t, :]
         posX = [pos_t[i*3+0] for i in range(len(pos_t)/3)]
         posY = [pos_t[i*3+1] for i in range(len(pos_t)/3)]
         posZ = [pos_t[i*3+2] for i in range(len(pos_t)/3)]
-
-        uncfposX = []
-        uncfposY = []
-        uncfposZ = []
-        # unconfident joints
-        if posconf_arr == None:
-            posconf_t = None
-        else:
-            posconf_t = posconf_arr[t, :]
-            uncfposX = [pos_t[i*3+0] for i in find(posconf_t == 0)]
-            uncfposY = [pos_t[i*3+1] for i in find(posconf_t == 0)]
-            uncfposZ = [pos_t[i*3+2] for i in find(posconf_t == 0)]
 
         pos_joiX = []
         pos_joiY = []
@@ -238,19 +213,23 @@ def animate_skeleton(skel,
         plot_pos._offsets3d = (np.ma.ravel(posX), 
                                     np.ma.ravel(posY), 
                                     np.ma.ravel(posZ))
-        plot_uncfpos._offsets3d = (np.ma.ravel(uncfposX), 
-                                    np.ma.ravel(uncfposY), 
-                                    np.ma.ravel(uncfposZ))
         plot_pos_joi._offsets3d = (np.ma.ravel(pos_joiX), 
                                     np.ma.ravel(pos_joiY), 
                                     np.ma.ravel(pos_joiZ))
+
+        if t < n_seed:
+            line_color = 'g'
+        else:
+            line_color = 'b'
+
         i = 0
         for line in plot_lines:
             line[0].set_data([lineX1[i], lineX2[i]], [lineY1[i], lineY2[i]])
             line[0].set_3d_properties([lineZ1[i], lineZ2[i]])
+            line[0].set_color(line_color)
             i += 1
 
-        return [plot_pos] + [plot_uncfpos] + [plot_pos_joi] + plot_lines
+        return [plot_pos] + [plot_pos_joi] + plot_lines
 
     anim = animation.FuncAnimation(fig, update, init_func=init,
                                    frames=len_seq, interval=1, blit=True)

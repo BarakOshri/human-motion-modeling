@@ -8,7 +8,8 @@ import random
 import sys
 sys.path.append('/deep/u/kuanfang/human-motion-modeling');
 
-from model.rnn import *
+import theano
+from model.lstm import *
 from util.cornell_utils import *
 import util.my_logging
 from util.mocap_utils import *
@@ -80,8 +81,9 @@ n_x = datain.shape[1]
 n_y = datain.shape[1]
 n_h = 100
 print [n_x, n_y, n_h]
+# dropout = 0.0
 
-model = RNNL1(n_x, n_h, n_y, dynamics=lambda x, y: x+y)
+model = LSTML1(n_x, n_h, n_y, dynamics=lambda x, y: x+y)
 
 toc = clock()
 logging.info('Done in %f sec.', toc-tic)
@@ -116,13 +118,13 @@ while epoch <= 5000:
         end = index_train_[i, 1]
         din = datain[start:end, :]
         dout = dataout[start:end, :]
-        list_loss.append(model.train(din, dout, lr))
+        list_loss.append(model.train(din, dout))
 
     loss_train = np.sqrt(np.mean(list_loss))
 
     toc = clock()
-    logging.info('epoch: %d\tloss_train: %f\ttime: %f', 
-                    epoch, loss_train, toc-tic)
+    logging.info('epoch: %d\tloss_train: %f\tlearning_rate: %.2f\ttime: %f', 
+                    epoch, loss_train, lr, toc-tic)
 
     # Learning rate decay
     if en_decay and prev_loss_train - loss_train <= epsl_decay:

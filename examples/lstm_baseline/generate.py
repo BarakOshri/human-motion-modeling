@@ -8,14 +8,14 @@ import random
 import sys
 sys.path.append('/deep/u/kuanfang/human-motion-modeling');
 
-from model.rnn import *
+from model.lstm import *
 from util.cornell_utils import *
 import util.my_logging
 from util.mocap_utils import *
 
 # Compilation Mode
-# theano.config.mode = 'FAST_COMPILE'
-theano.config.mode = 'FAST_RUN'
+theano.config.mode = 'FAST_COMPILE'
+# theano.config.mode = 'FAST_RUN'
 # theano.config.mode = 'DEBUG_MODE'
 # theano.config.exception_verbosity = 'high'
 
@@ -59,18 +59,9 @@ data_index = np.concatenate(
                 [[[index[i, 0]-i, index[i, 1]-i-1]]\
                 for i in range(index.shape[0])],
                 axis=0)
-# inits, dataout, data_index = abs2inc_forall(bcpos_arr_, index)
 
 index_train = data_index.copy()
 index_test = data_index.copy()
-
-# np.save('inits', inits)
-np.save('data_index', data_index)
-
-np.save('datain', datain)
-np.save('dataout', dataout)
-np.save('data_mean', data_mean)
-np.save('data_std', data_std)
 
 # Initialize Model
 logging.info('Initializing model...')
@@ -81,57 +72,42 @@ n_y = datain.shape[1]
 n_h = 100
 print [n_x, n_y, n_h]
 
-model = RNNL1(n_x, n_h, n_y, dynamics=lambda x, y: x+y)
+model = LSTML1(n_x, n_h, n_y, dynamics=lambda x, y: x+y)
+model.load(os.path.join(path_models, 'model.npy'))
 
 toc = clock()
 logging.info('Done in %f sec.', toc-tic)
 
-# Training 
-list_loss = []
-for i in range(index_train.shape[0]): 
+# Prediction
+def predict_1(i):
     start = index_train[i, 0]
     end = index_train[i, 1]
     din = datain[start:end, :]
-    dout = dataout[start:end, :]
-    loss = np.mean((din - dout) ** 2)
-    list_loss.append(loss)
+    return model.predict(din)
 
-loss_train = np.sqrt(np.mean(list_loss))
-print 'direct loss: %f' % loss_train
+pred_arr = np.concatenate([predict_1(i) for i in range(index_train.shape[0])],
+                            axis=0)
+print 'prediction loss: %f' % np.mean((pred_arr - dataout) ** 2)
+# print pred_arr[10:20]
+# print dataout[10:20]
 
-epoch = 0
-prev_loss_train = float('inf')
+data_idx = [0, 1, 2, 3]
+len_seed = 10
+n_gen = 100
+list_gen_serie = []
+for i in data_idx:
+    start = index_train[i, 0]
+    end = index_train[i, 1]
+    din = datain[start:start+len_seed, :]
 
-# while 1:
-while epoch <= 5000:
-    tic = clock()
+    gen_serie = model.generate(din, n_gen) 
+    print gen_serie.shape
+    gen_serie = np.concatenate([din, gen_serie], axis=0)
+    list_gen_serie.append(gen_serie)
 
-    # Shuffle
-    index_train_ = index_train.copy()
-    # np.random.shuffle(index_train_) 
+    np.save(os.path.join(path_outputs, 'gen_serie_{}'.format(i)), 
+            gen_serie)
+    logging.info('saved gen_serie_%d', i)
+    
 
-    list_loss = []
-    for i in range(index_train_.shape[0]): 
-        start = index_train_[i, 0]
-        end = index_train_[i, 1]
-        din = datain[start:end, :]
-        dout = dataout[start:end, :]
-        list_loss.append(model.train(din, dout, lr))
-
-    loss_train = np.sqrt(np.mean(list_loss))
-
-    toc = clock()
-    logging.info('epoch: %d\tloss_train: %f\ttime: %f', 
-                    epoch, loss_train, toc-tic)
-
-    # Learning rate decay
-    if en_decay and prev_loss_train - loss_train <= epsl_decay:
-        lr /= 2
-
-    # 
-    prev_loss_train = loss_train
-
-    model.save(os.path.join(path_models, 'model'))
-
-    epoch += 1
 
