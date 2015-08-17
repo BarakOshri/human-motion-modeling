@@ -41,6 +41,7 @@ tic = clock()
 
 pos_arr = np.load(os.path.join(path_dataset, 'pos_arr.npy'))
 ori_arr = np.load(os.path.join(path_dataset, 'ori_arr.npy'))
+pos_joi_arr = np.load(os.path.join(path_dataset, 'pos_joi_arr.npy'))
 bcpos_arr = np.load(os.path.join(path_dataset, 'bcpos_arr.npy'))
 index = np.load(os.path.join(path_dataset, 'index.npy'))
 
@@ -52,12 +53,19 @@ data_mean = np.mean(bcpos_arr, axis=0)
 data_std = np.std(bcpos_arr, axis=0)
 bcpos_arr_ = (bcpos_arr - data_mean) / data_std
 
+pos_joi_mean = np.mean(pos_joi_arr, axis=0)
+pos_joi_std = np.std(pos_joi_arr, axis=0)
+pos_joi_arr_ = (pos_joi_arr - pos_joi_mean) / pos_joi_std 
 datain = np.concatenate(
             [bcpos_arr_[index[i, 0]:index[i, 1]-1, :]\
             for i in range(index.shape[0])],
             axis=0).astype('float32')
 dataout = np.concatenate(
             [bcpos_arr_[index[i, 0]+1:index[i, 1], :]\
+            for i in range(index.shape[0])],
+            axis=0).astype('float32')
+dataz = np.concatenate(
+            [pos_joi_arr_[index[i, 0]+1:index[i, 1], :]\
             for i in range(index.shape[0])],
             axis=0).astype('float32')
 data_index = np.concatenate(
@@ -80,20 +88,23 @@ np.save('datain', datain)
 np.save('dataout', dataout)
 np.save('data_mean', data_mean)
 np.save('data_std', data_std)
+np.save('dataz', dataz)
+np.save('pos_joi_mean', pos_joi_mean)
+np.save('pos_joi_std', pos_joi_std)
 
 # Initialize Model
 logging.info('Initializing model...')
 tic = clock()
 
-n_x = datain.shape[1]
-n_y = datain.shape[1]
+n_x = datain.shape[1] + dataz.shape[1]
+n_y = dataout.shape[1]
 n_h = 200
 print 'layer size:'
 print [n_x, n_h, n_y]
 
 cells = StackedCells(n_x, layers=[n_h], activation=T.tanh, celltype=LSTM)
 cells.layers.append(Layer(n_h, n_y, lambda x: x))
-model = RNN1L(cells, 
+model = RNN1LZ(cells, 
                 dynamics=lambda x, y: x+y, 
                 optimize_method='adadelta')
 
@@ -117,6 +128,10 @@ print 'direct loss: %f' % loss_train
 prev_loss_train = float('inf')
 loss_hist_train = []
 loss_hist_test = []
+cnt_frames_train = np.sum([index_train[i, 1] - index_train[i, 0] 
+                            for i in range(index_train.shape[0])])
+cnt_frames_test = np.sum([index_test[i, 1] - index_test[i, 0] 
+                            for i in range(index_test.shape[0])])
 
 epoch = 0
 # while 1:
@@ -129,13 +144,15 @@ while epoch <= 5000:
 
     # train phase
     list_loss = []
+    cnt_frames = 0
     for i in range(index_train_.shape[0]): 
         start = index_train_[i, 0]
         end = index_train_[i, 1]
         din = datain[start:end, :]
         dout = dataout[start:end, :]
-        list_loss.append(model.train(din, dout))
-    loss_train = np.sqrt(np.mean(list_loss))
+        dz = dataz[start:end, :]
+        list_loss.append(model.train(din, dz, dout) * dout.shape[0])
+    loss_train = np.sqrt(np.sum(list_loss) / cnt_frames_train)
     loss_hist_train.append([epoch, loss_train])
 
     toc = clock()
@@ -154,10 +171,11 @@ while epoch <= 5000:
             end = index_test[i, 1]
             din = datain[start:end, :]
             dout = dataout[start:end, :]
-            pred = model.predict(din)
-            loss = np.mean((pred - dout) ** 2)            
+            dz = dataz[start:end, :]
+            pred = model.predict(din, dz)
+            loss = np.mean((pred - dout) ** 2) * dout.shape[0]           
             list_loss.append(loss)
-        loss_test = np.sqrt(np.mean(list_loss))
+        loss_test = np.sqrt(np.sum(list_loss) / cnt_frames_test)
         loss_hist_train.append([epoch, loss_train])
         logging.info('loss_test: %f', loss_test)
 

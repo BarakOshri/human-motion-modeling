@@ -23,8 +23,8 @@ for activity_label, activities in subject.iteritems():
         activity = activities[id]
         sub_activities = activity['sub_activities']
         for sub_activity in sub_activities:
-            if sub_activity['sub_activity_id'] == 'reaching': # TODO
-            # if True:
+            # if sub_activity['sub_activity_id'] == 'reaching': # TODO
+            if True:
                 
                 if sub_activity['end_frame'] - sub_activity['start_frame'] <= 6:
                     continue

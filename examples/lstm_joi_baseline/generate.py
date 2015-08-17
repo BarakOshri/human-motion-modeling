@@ -50,23 +50,29 @@ datain = np.load('datain.npy')
 dataout = np.load('dataout.npy')
 data_mean = np.load('data_mean.npy')
 data_std = np.load('data_std.npy')
+dataz = np.load('dataz.npy')
+pos_joi_mean = np.load('pos_joi_mean.npy')
+pos_joi_std = np.load('pos_joi_std.npy')
 
 toc = clock()
 logging.info('Done in %f sec.', toc-tic)
+
+print index_train[-1, 1] - index_train[0, 0]
+print dataout[:index_train[-1, 1]].shape
 
 # Initialize Model
 logging.info('Initializing model...')
 tic = clock()
 
-n_x = datain.shape[1]
-n_y = datain.shape[1]
-n_h = 100
+n_x = datain.shape[1] + dataz.shape[1]
+n_y = dataout.shape[1]
+n_h = 200
 print 'layer size:'
 print [n_x, n_h, n_y]
 
 cells = StackedCells(n_x, layers=[n_h], activation=T.tanh, celltype=LSTM)
 cells.layers.append(Layer(n_h, n_y, lambda x: x))
-model = RNN1L(cells, 
+model = RNN1LZ(cells, 
                 dynamics=lambda x, y: x+y, 
                 optimize_method='adadelta')
 model.load(os.path.join(path_models, 'model.npy'))
@@ -75,39 +81,12 @@ toc = clock()
 logging.info('Done in %f sec.', toc-tic)
 
 # Prediction
-list_loss = []
-ss = 0
-for i in range(index_train.shape[0]): 
-    start = index_train[i, 0]
-    end = index_train[i, 1]
-    din = datain[start:end, :]
-    dout = dataout[start:end, :]
-    pred = model.predict(din)
-    loss = np.sum(np.mean((pred - dout) ** 2, axis=1))            
-    ss += pred.shape[0]
-    list_loss.append(loss)
-loss_train = np.sqrt(np.sum(list_loss)/ss)
-print 'loss_train: %f' % loss_train
-
-list_loss = []
-ss = 0
-for i in range(index_test.shape[0]): 
-    start = index_test[i, 0]
-    end = index_test[i, 1]
-    din = datain[start:end, :]
-    dout = dataout[start:end, :]
-    pred = model.predict(din)
-    loss = np.sum(np.mean((pred - dout) ** 2, axis=1))            
-    ss += pred.shape[0]
-    list_loss.append(loss)
-loss_test = np.sqrt(np.sum(list_loss)/ss)
-print 'loss_test: %f' % loss_test
-
 def predict_1(index, i):
     start = index[i, 0]
     end = index[i, 1]
     din = datain[start:end, :]
-    return model.predict(din)
+    dz = dataz[start:end, :]
+    return model.predict(din, dz)
 
 pred_train_arr = np.concatenate([predict_1(index_train, i)
                                 for i in range(index_train.shape[0])],
@@ -129,14 +108,14 @@ print 'prediction loss on testset: %f'\
 
 data_idx = [0, 1, 2, 3]
 len_seed = 10
-n_gen = 100
 list_gen_serie = []
 for i in data_idx:
     start = index_train[i, 0]
     end = index_train[i, 1]
     din = datain[start:start+len_seed, :]
+    dz = dataz[start:end, :]
 
-    gen_serie = model.generate(din, n_gen) 
+    gen_serie = model.generate(din, dz) 
     print gen_serie.shape
     gen_serie = np.concatenate([din, gen_serie], axis=0)
     list_gen_serie.append(gen_serie)
