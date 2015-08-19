@@ -30,7 +30,7 @@ lr = 1e-1 # leaning rate
 bs = 1 # batch size
 
 en_decay = False # enable learning rate decay
-epsl_decay = 1e-3 # epsilon value of learning rate decy
+epsl_decay = 1e-3 # epsilon value of learning rate decay
 
 en_test = True
 test_cycle = 10
