@@ -56,6 +56,7 @@ bcpos_arr_ = (bcpos_arr - data_mean) / data_std
 pos_joi_mean = np.mean(pos_joi_arr, axis=0)
 pos_joi_std = np.std(pos_joi_arr, axis=0)
 pos_joi_arr_ = (pos_joi_arr - pos_joi_mean) / pos_joi_std 
+
 datain = np.concatenate(
             [bcpos_arr_[index[i, 0]:index[i, 1]-1, :]\
             for i in range(index.shape[0])],
@@ -73,15 +74,22 @@ data_index = np.concatenate(
                 for i in range(index.shape[0])],
                 axis=0)
 
-np.random.shuffle(data_index) # Deubug
+# shuffle
+np.random.shuffle(data_index)
 
+# split the dataset
 n_seq_train = data_index.shape[0] * 8 / 10
-print n_seq_train
-
 index_train = data_index[:n_seq_train].copy()
 index_test = data_index[n_seq_train:].copy()
 
-np.save('data_index', data_index) # 
+# numper of frames in each dataset
+cnt_frames_train = np.sum([index_train[i, 1] - index_train[i, 0] 
+                            for i in range(index_train.shape[0])])
+cnt_frames_test = np.sum([index_test[i, 1] - index_test[i, 0] 
+                            for i in range(index_test.shape[0])])
+
+# saving the data files
+np.save('data_index', data_index)  
 np.save('index_train', index_train)
 np.save('index_test', index_test)
 np.save('datain', datain)
@@ -111,7 +119,7 @@ model = RNN1LZ(cells,
 toc = clock()
 logging.info('Done in %f sec.', toc-tic)
 
-# Direct loss
+# Direct Loss (for comparison)
 list_loss = []
 for i in range(index_train.shape[0]): 
     start = index_train[i, 0]
@@ -128,10 +136,6 @@ print 'direct loss: %f' % loss_train
 prev_loss_train = float('inf')
 loss_hist_train = []
 loss_hist_test = []
-cnt_frames_train = np.sum([index_train[i, 1] - index_train[i, 0] 
-                            for i in range(index_train.shape[0])])
-cnt_frames_test = np.sum([index_test[i, 1] - index_test[i, 0] 
-                            for i in range(index_test.shape[0])])
 
 epoch = 0
 # while 1:
@@ -151,7 +155,8 @@ while epoch <= 5000:
         din = datain[start:end, :]
         dout = dataout[start:end, :]
         dz = dataz[start:end, :]
-        list_loss.append(model.train(din, dz, dout) * dout.shape[0])
+        loss = model.train(din, dz, dout)
+        list_loss.append(loss * dout.shape[0])
     loss_train = np.sqrt(np.sum(list_loss) / cnt_frames_train)
     loss_hist_train.append([epoch, loss_train])
 
@@ -173,10 +178,10 @@ while epoch <= 5000:
             dout = dataout[start:end, :]
             dz = dataz[start:end, :]
             pred = model.predict(din, dz)
-            loss = np.mean((pred - dout) ** 2) * dout.shape[0]           
-            list_loss.append(loss)
+            loss = np.mean((pred - dout) ** 2)           
+            list_loss.append(loss * dout.shape[0])
         loss_test = np.sqrt(np.sum(list_loss) / cnt_frames_test)
-        loss_hist_train.append([epoch, loss_train])
+        loss_hist_test.append([epoch, loss_test])
         logging.info('loss_test: %f', loss_test)
 
     # wrap up

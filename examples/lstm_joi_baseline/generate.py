@@ -60,6 +60,9 @@ logging.info('Done in %f sec.', toc-tic)
 print index_train[-1, 1] - index_train[0, 0]
 print dataout[:index_train[-1, 1]].shape
 
+print datain[0:3, :]
+print bcpos_arr[0:3, :]
+
 # Initialize Model
 logging.info('Initializing model...')
 tic = clock()
@@ -80,45 +83,47 @@ model.load(os.path.join(path_models, 'model.npy'))
 toc = clock()
 logging.info('Done in %f sec.', toc-tic)
 
-# Prediction
-def predict_1(index, i):
-    start = index[i, 0]
-    end = index[i, 1]
-    din = datain[start:end, :]
-    dz = dataz[start:end, :]
-    return model.predict(din, dz)
+# # Prediction
+# def predict_1(index, i):
+#     start = index[i, 0]
+#     end = index[i, 1]
+#     din = datain[start:end, :]
+#     dz = dataz[start:end, :]
+#     return model.predict(din, dz)
+# 
+# pred_train_arr = np.concatenate([predict_1(index_train, i)
+#                                 for i in range(index_train.shape[0])],
+#                                 axis=0)
+# gt_train_arr = np.concatenate([dataout[index_train[i, 0]:index_train[i, 1]]
+#                                 for i in range(index_train.shape[0])],
+#                                 axis=0)
+# print 'prediction loss on trainset: %f'\
+#         % np.sqrt(np.mean((pred_train_arr - gt_train_arr) ** 2))
+# 
+# pred_test_arr = np.concatenate([predict_1(index_test, i)
+#                                 for i in range(index_test.shape[0])],
+#                                 axis=0)
+# gt_test_arr = np.concatenate([dataout[index_test[i, 0]:index_test[i, 1]]
+#                                 for i in range(index_test.shape[0])],
+#                                 axis=0)
+# print 'prediction loss on testset: %f'\
+#         % np.sqrt(np.mean((pred_test_arr - gt_test_arr) ** 2))
 
-pred_train_arr = np.concatenate([predict_1(index_train, i)
-                                for i in range(index_train.shape[0])],
-                                axis=0)
-gt_train_arr = np.concatenate([dataout[index_train[i, 0]:index_train[i, 1]]
-                                for i in range(index_train.shape[0])],
-                                axis=0)
-print 'prediction loss on trainset: %f'\
-        % np.sqrt(np.mean((pred_train_arr - gt_train_arr) ** 2))
-
-pred_test_arr = np.concatenate([predict_1(index_test, i)
-                                for i in range(index_test.shape[0])],
-                                axis=0)
-gt_test_arr = np.concatenate([dataout[index_test[i, 0]:index_test[i, 1]]
-                                for i in range(index_test.shape[0])],
-                                axis=0)
-print 'prediction loss on testset: %f'\
-        % np.sqrt(np.mean((pred_test_arr - gt_test_arr) ** 2))
-
-data_idx = [0, 1, 2, 3]
+seq_idx = [0, 1, 2, 3]
+seq_idx = [0]
 len_seed = 10
 list_gen_serie = []
-for i in data_idx:
+for i in seq_idx:
     start = index_train[i, 0]
     end = index_train[i, 1]
+    print 'frame range: {}'.format((start, end))
     din = datain[start:start+len_seed, :]
     dz = dataz[start:end, :]
 
     gen_serie = model.generate(din, dz) 
-    print gen_serie.shape
     gen_serie = np.concatenate([din, gen_serie], axis=0)
     list_gen_serie.append(gen_serie)
+    print 'size of generated serie: {}'.format(gen_serie.shape)
 
     np.save(os.path.join(path_outputs, 'gen_serie_{}'.format(i)), 
             gen_serie)

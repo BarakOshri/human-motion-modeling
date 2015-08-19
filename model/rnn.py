@@ -35,7 +35,7 @@ class RNN1L(BaseNN):
         initial_rho: float
             Initial rho for adadelta.
         en_generate: bool
-            If True, generative functions are enabled
+            If True, generative functions are enabled;
             if False, it's not. 
         '''
         self.cells = cells
@@ -146,7 +146,7 @@ class RNN1LZ(BaseNN):
         initial_rho: float
             Initial rho for adadelta.
         en_generate: bool
-            If True, generative functions are enabled
+            If True, generative functions are enabled;
             if False, it's not. 
         '''
         self.cells = cells
