@@ -4,6 +4,9 @@ import os
 from theano import tensor as T
 from collections import OrderedDict
 
+def relu(x, alpha=0):
+    return T.switch(x > 0, x, alpha * x)
+
 class BaseNN(object):
     def __init__(self, num_rng=None):
         if not numpy_rng:
